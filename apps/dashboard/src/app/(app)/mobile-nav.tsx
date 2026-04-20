@@ -2,23 +2,16 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useState, type ComponentType, type SVGProps } from 'react';
+import { useEffect, useState } from 'react';
 import { Menu, X } from 'lucide-react';
-
-interface NavItem {
-  href: string;
-  label: string;
-  icon: ComponentType<SVGProps<SVGSVGElement>>;
-}
+import { navItems } from './nav-items';
 
 export function MobileNav({
-  items,
   userName,
   userEmail,
   userRole,
   logoutSlot,
 }: {
-  items: NavItem[];
   userName: string;
   userEmail: string;
   userRole: 'admin' | 'attendant';
@@ -26,6 +19,8 @@ export function MobileNav({
 }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
+
+  const items = navItems.filter((i) => !i.adminOnly || userRole === 'admin');
 
   // Fecha o drawer ao navegar
   useEffect(() => {
