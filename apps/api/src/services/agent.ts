@@ -1,0 +1,141 @@
+import { buildSystemPrompt, functionDefinitions } from '@imuniza/ai';
+import type { FastifyBaseLogger } from 'fastify';
+import type OpenAI from 'openai';
+import { addMessage, loadHistory } from './conversation.js';
+import { functionHandlers, type FunctionContext } from './functions.js';
+import { ai } from './openai.js';
+import { getTenantConfig } from './tenant.js';
+import { prisma } from '@imuniza/db';
+
+const MAX_TOOL_ITERATIONS = 5;
+
+interface RunAgentInput {
+  tenantId: string;
+  conversationId: string;
+  patientId: string;
+  patientPhone: string;
+  logger: FastifyBaseLogger;
+}
+
+interface TenantPersonaConfig {
+  persona?: string;
+  greeting?: string;
+  businessHours?: { start: string; end: string; timezone: string };
+}
+
+type ChatMessage = OpenAI.Chat.Completions.ChatCompletionMessageParam;
+
+export async function runAgent(input: RunAgentInput): Promise<void> {
+  const tenant = await getTenantConfig(input.tenantId);
+  const personaConfig = (tenant.config as TenantPersonaConfig | null) ?? {};
+
+  const patient = await prisma.patient.findUnique({ where: { id: input.patientId } });
+  const profile = patient?.profile ?? {};
+  const history = await loadHistory(input.conversationId, 20);
+
+  const system = buildSystemPrompt({
+    clinicName: tenant.name,
+    persona: personaConfig.persona ?? 'Seja acolhedora, clara e breve.',
+    businessHours: personaConfig.businessHours,
+    currentDate: new Date().toISOString().slice(0, 10),
+  });
+
+  const messages: ChatMessage[] = [
+    { role: 'system', content: system },
+    {
+      role: 'system',
+      content: `Perfil atual do paciente (JSON): ${JSON.stringify(profile)}. Telefone: ${input.patientPhone}.`,
+    },
+    ...history.map<ChatMessage>((m) => {
+      if (m.role === 'user') return { role: 'user', content: m.content };
+      if (m.role === 'system') return { role: 'system', content: m.content };
+      if (m.role === 'tool') {
+        return {
+          role: 'tool',
+          content: m.content,
+          tool_call_id: (m.metadata as { toolCallId?: string })?.toolCallId ?? 'unknown',
+        };
+      }
+      return { role: 'assistant', content: m.content };
+    }),
+  ];
+
+  const ctx: FunctionContext = {
+    tenantId: input.tenantId,
+    conversationId: input.conversationId,
+    patientId: input.patientId,
+    patientPhone: input.patientPhone,
+    logger: input.logger,
+  };
+
+  for (let iter = 0; iter < MAX_TOOL_ITERATIONS; iter++) {
+    const completion = await ai.client.chat.completions.create({
+      model: ai.chatModel,
+      messages,
+      tools: functionDefinitions,
+      tool_choice: 'auto',
+      temperature: 0.4,
+    });
+
+    const choice = completion.choices[0];
+    if (!choice) break;
+
+    const assistantMsg = choice.message;
+
+    if (assistantMsg.tool_calls && assistantMsg.tool_calls.length > 0) {
+      messages.push({
+        role: 'assistant',
+        content: assistantMsg.content ?? '',
+        tool_calls: assistantMsg.tool_calls,
+      });
+
+      for (const call of assistantMsg.tool_calls) {
+        if (call.type !== 'function') continue;
+        const handler = functionHandlers[call.function.name];
+        if (!handler) {
+          messages.push({
+            role: 'tool',
+            tool_call_id: call.id,
+            content: JSON.stringify({ error: `unknown function ${call.function.name}` }),
+          });
+          continue;
+        }
+
+        let parsedArgs: Record<string, unknown> = {};
+        try {
+          parsedArgs = JSON.parse(call.function.arguments || '{}');
+        } catch (err) {
+          input.logger.error({ err, args: call.function.arguments }, 'bad tool args');
+        }
+
+        const result = await handler(parsedArgs, ctx);
+
+        await addMessage({
+          conversationId: input.conversationId,
+          role: 'tool',
+          content: result.output,
+          metadata: { toolName: call.function.name, toolCallId: call.id },
+        });
+
+        messages.push({
+          role: 'tool',
+          tool_call_id: call.id,
+          content: result.output,
+        });
+      }
+      continue;
+    }
+
+    const finalText = assistantMsg.content?.trim();
+    if (finalText) {
+      await addMessage({
+        conversationId: input.conversationId,
+        role: 'assistant',
+        content: finalText,
+        metadata: { fallbackWithoutToolCall: true },
+      });
+      input.logger.warn({ finalText }, 'agent emitted text without send_reply tool call');
+    }
+    break;
+  }
+}

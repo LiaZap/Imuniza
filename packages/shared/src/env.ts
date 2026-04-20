@@ -1,0 +1,39 @@
+import { z } from 'zod';
+
+const envSchema = z.object({
+  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+
+  DATABASE_URL: z.string().url(),
+  REDIS_URL: z.string().url(),
+
+  OPENAI_API_KEY: z.string().min(1),
+  OPENAI_CHAT_MODEL: z.string().default('gpt-4o'),
+  OPENAI_EMBEDDING_MODEL: z.string().default('text-embedding-3-small'),
+
+  UAZAPI_URL: z.string().url(),
+  UAZAPI_TOKEN: z.string().default(''),
+  UAZAPI_INSTANCE: z.string().default(''),
+  UAZAPI_WEBHOOK_SECRET: z.string().min(8),
+
+  API_PORT: z.coerce.number().int().positive().default(3001),
+  API_BASE_URL: z.string().url(),
+  DASHBOARD_BASE_URL: z.string().url(),
+
+  AUTH_SECRET: z.string().min(16),
+  AUTH_URL: z.string().url(),
+
+  DEFAULT_TENANT_NAME: z.string().default('Clinica Imuniza'),
+  DEFAULT_ADMIN_EMAIL: z.string().email().default('admin@imuniza.local'),
+  DEFAULT_ADMIN_PASSWORD: z.string().default('change-me'),
+});
+
+export type Env = z.infer<typeof envSchema>;
+
+export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
+  const parsed = envSchema.safeParse(source);
+  if (!parsed.success) {
+    const details = parsed.error.issues.map((i) => `  ${i.path.join('.')}: ${i.message}`).join('\n');
+    throw new Error(`Invalid environment variables:\n${details}`);
+  }
+  return parsed.data;
+}
