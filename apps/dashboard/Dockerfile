@@ -21,8 +21,10 @@ ENV NEXT_OUTPUT_STANDALONE=true
 COPY packages/shared ./packages/shared
 COPY apps/dashboard ./apps/dashboard
 
-# API_BASE_URL is only needed at runtime for the rewrite proxy; at build we pass a placeholder.
-ENV API_BASE_URL=http://api:3001
+# Next.js standalone bakes the rewrite destination at BUILD time, so API_BASE_URL
+# precisa chegar aqui via --build-arg (o Easypanel passa todas as envs como build args).
+ARG API_BASE_URL=http://localhost:3001
+ENV API_BASE_URL=$API_BASE_URL
 RUN pnpm --filter @imuniza/dashboard build
 
 # --- Stage 3: runtime (minimal)
