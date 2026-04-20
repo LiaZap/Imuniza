@@ -14,6 +14,7 @@ import {
 import { requireUser } from '@/lib/auth';
 import { LogoutButton } from './logout-button';
 import { NotificationsListener } from './notifications-listener';
+import { MobileNav } from './mobile-nav';
 
 const navItems = [
   { href: '/queue', label: 'Fila', icon: ListTodo },
@@ -33,11 +34,23 @@ const navItems = [
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const user = await requireUser();
+  const visibleNav = navItems.filter((i) => !i.adminOnly || user.role === 'admin');
 
   return (
-    <div className="flex min-h-screen bg-slate-50">
+    <div className="flex min-h-screen flex-col bg-slate-50 lg:flex-row">
       <NotificationsListener />
-      <aside className="flex w-64 flex-col border-r border-slate-200 bg-white">
+
+      {/* Mobile nav (drawer + top bar) */}
+      <MobileNav
+        items={visibleNav}
+        userName={user.name}
+        userEmail={user.email}
+        userRole={user.role}
+        logoutSlot={<LogoutButton />}
+      />
+
+      {/* Desktop sidebar */}
+      <aside className="hidden w-64 shrink-0 flex-col border-r border-slate-200 bg-white lg:flex">
         <div className="relative overflow-hidden bg-brand-gradient px-4 py-3">
           <div className="pointer-events-none absolute inset-0 bg-brand-radial" />
           <div className="relative flex h-20 items-center overflow-hidden">
@@ -50,18 +63,16 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           </div>
         </div>
         <nav className="flex-1 space-y-1 px-3 py-5">
-          {navItems
-            .filter((i) => !i.adminOnly || user.role === 'admin')
-            .map((item) => (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-brand-soft hover:text-brand-deep"
-              >
-                <item.icon className="h-4 w-4 text-slate-400 transition group-hover:text-brand" />
-                {item.label}
-              </Link>
-            ))}
+          {visibleNav.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-slate-600 transition hover:bg-brand-soft hover:text-brand-deep"
+            >
+              <item.icon className="h-4 w-4 text-slate-400 transition group-hover:text-brand" />
+              {item.label}
+            </Link>
+          ))}
         </nav>
         <div className="border-t border-slate-200 p-4">
           <div className="flex items-center gap-3">
@@ -81,7 +92,8 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
           </div>
         </div>
       </aside>
-      <main className="flex-1 overflow-y-auto">{children}</main>
+
+      <main className="flex-1 overflow-x-hidden">{children}</main>
     </div>
   );
 }

@@ -30,14 +30,14 @@ export default async function PatientsPage({ searchParams }: PageProps) {
   const patients = (await apiGet<PatientSummary[]>(`/patients${qs}`)) ?? [];
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-6 lg:p-8">
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-brand">
             <UserRound className="h-3.5 w-3.5" />
             Prontuário digital
           </div>
-          <h1 className="font-display text-3xl font-bold text-slate-900">Pacientes</h1>
+          <h1 className="font-display text-2xl sm:text-3xl font-bold text-slate-900">Pacientes</h1>
           <p className="mt-1 max-w-xl text-sm text-slate-500">
             Catálogo completo com histórico de vacinação e próximas doses automáticas.
           </p>

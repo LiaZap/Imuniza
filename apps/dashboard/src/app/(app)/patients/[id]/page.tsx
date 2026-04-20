@@ -53,7 +53,7 @@ export default async function PatientDetailPage({
   const scheduled = patient.reminders.filter((r) => r.status === 'scheduled');
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-6 lg:p-8">
       <Link
         href="/patients"
         className="mb-4 inline-flex items-center gap-1.5 text-xs font-medium text-slate-500 hover:text-brand"

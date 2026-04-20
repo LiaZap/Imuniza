@@ -42,7 +42,7 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
   const templates = settings?.config.quickTemplates ?? [];
 
   return (
-    <div className="flex h-screen flex-col p-8">
+    <div className="flex h-[calc(100vh-3.5rem)] flex-col p-4 sm:p-6 lg:h-screen lg:p-8">
       <header className="mb-4">
         <Link
           href="/queue"
@@ -52,12 +52,12 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
           Voltar à fila
         </Link>
         <div className="mt-3 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-soft text-lg font-semibold text-brand-deep">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-soft text-base font-semibold text-brand-deep sm:h-14 sm:w-14 sm:text-lg">
               {initials(conversation.patient.name, conversation.patient.phone)}
             </div>
-            <div>
-              <h1 className="font-display text-2xl font-bold text-slate-900">
+            <div className="min-w-0">
+              <h1 className="font-display text-xl font-bold text-slate-900 sm:text-2xl">
                 {conversation.patient.name ?? 'Paciente'}
               </h1>
               <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">

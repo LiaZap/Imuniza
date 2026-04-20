@@ -195,7 +195,7 @@ export default async function MetricsPage() {
   );
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-6 lg:p-8">
       <MetricsRealtime />
 
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
@@ -204,7 +204,7 @@ export default async function MetricsPage() {
             <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-brand" />
             Tempo real
           </div>
-          <h1 className="font-display text-3xl font-bold text-slate-900">Métricas</h1>
+          <h1 className="font-display text-2xl sm:text-3xl font-bold text-slate-900">Métricas</h1>
           <p className="mt-1 text-sm text-slate-500">
             Visão completa da IA, fila humana e engajamento dos pacientes.
           </p>

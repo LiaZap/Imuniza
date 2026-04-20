@@ -37,7 +37,7 @@ function LoginForm() {
   const params = useSearchParams();
   const next = params.get('next') ?? '/queue';
 
-  const [email, setEmail] = useState('admin@imuniza.local');
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -130,22 +130,33 @@ function LoginForm() {
           <div className="pb-2 text-xs text-white/50">© Clínica Imuniza</div>
         </section>
 
-        {/* MOBILE header */}
-        <section className="flex flex-col items-center gap-2 px-6 pb-4 pt-10 text-white lg:hidden">
-          <LogoMark variant="light" size="md" />
-          <p className="max-w-xs text-center text-sm text-white/80">
+        {/* MOBILE header com a logo real */}
+        <section className="flex flex-col items-center gap-3 px-6 pb-6 pt-12 text-white lg:hidden">
+          <div className="relative flex h-20 w-64 items-center justify-center overflow-hidden">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/logo.png"
+              alt="Clínica Imuniza"
+              className="h-48 w-auto max-w-none object-contain"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).style.display = 'none';
+                const fb = e.currentTarget.nextElementSibling as HTMLElement | null;
+                if (fb) fb.style.display = 'flex';
+              }}
+            />
+            <div style={{ display: 'none' }}>
+              <LogoMark variant="light" size="lg" />
+            </div>
+          </div>
+          <p className="max-w-xs text-center text-sm text-white/85">
             Plataforma de atendimento humanizado via WhatsApp.
           </p>
         </section>
 
         {/* RIGHT — form card */}
-        <section className="relative mx-4 mb-8 mt-4 lg:mx-0 lg:mb-0 lg:mt-0">
-          <div className="rounded-3xl bg-white p-8 shadow-premium ring-1 ring-black/5 sm:p-10">
-            <div className="mb-6 flex items-center gap-3 lg:hidden">
-              <LogoMark variant="dark" size="sm" />
-            </div>
-
-            <div className="mb-8">
+        <section className="relative mx-4 mb-8 mt-2 lg:mx-0 lg:mb-0 lg:mt-0">
+          <div className="rounded-3xl bg-white p-6 shadow-premium ring-1 ring-black/5 sm:p-8 lg:p-10">
+            <div className="mb-6">
               <h2 className="font-display text-2xl font-bold text-slate-900">Bem-vindo</h2>
               <p className="mt-1 text-sm text-slate-500">
                 Entre com seu e-mail e senha corporativos.
