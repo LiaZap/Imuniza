@@ -171,7 +171,7 @@ function LoginForm() {
                 autoComplete="email"
                 value={email}
                 onChange={setEmail}
-                placeholder="voce@suaclinica.com.br"
+                placeholder=""
               />
               <Field
                 label="Senha"
