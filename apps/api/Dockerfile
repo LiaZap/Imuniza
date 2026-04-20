@@ -47,4 +47,5 @@ USER app
 
 EXPOSE 3001
 ENTRYPOINT ["/sbin/tini", "--"]
-CMD ["node", "--experimental-specifier-resolution=node", "node_modules/tsx/dist/cli.mjs", "apps/api/src/server.ts"]
+# Invoca tsx via pnpm no workspace @imuniza/api (pnpm sabe resolver o bin dele).
+CMD ["pnpm", "--filter", "@imuniza/api", "run", "start:prod"]
