@@ -19,9 +19,10 @@ COPY packages/uazapi/package.json ./packages/uazapi/
 RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store \
     pnpm install --frozen-lockfile
 
-# --- Stage 2: generate Prisma client (needs schema + node_modules)
-FROM deps AS prisma
-COPY packages/db ./packages/db
+# --- Stage 2: copy source + generate Prisma client
+FROM deps AS build
+COPY packages ./packages
+COPY apps/api ./apps/api
 RUN pnpm --filter @imuniza/db db:generate
 
 # --- Stage 3: runtime
@@ -33,13 +34,8 @@ RUN corepack enable && corepack prepare pnpm@10.30.3 --activate
 ENV NODE_ENV=production
 ENV PORT=3001
 
-# Full workspace copy for tsx runtime (simpler than building every package)
-COPY --from=prisma /repo/node_modules ./node_modules
-COPY --from=prisma /repo/package.json ./
-COPY --from=prisma /repo/pnpm-workspace.yaml ./
-COPY --from=prisma /repo/tsconfig.base.json ./
-COPY --from=prisma /repo/packages ./packages
-COPY apps/api ./apps/api
+# Copia o workspace inteiro (preserva symlinks do pnpm em apps/api/node_modules)
+COPY --from=build /repo ./
 
 RUN addgroup -S app -g 1001 && adduser -S app -u 1001 -G app \
     && chown -R app:app /app
@@ -47,5 +43,4 @@ USER app
 
 EXPOSE 3001
 ENTRYPOINT ["/sbin/tini", "--"]
-# Invoca tsx via pnpm no workspace @imuniza/api (pnpm sabe resolver o bin dele).
 CMD ["pnpm", "--filter", "@imuniza/api", "run", "start:prod"]
