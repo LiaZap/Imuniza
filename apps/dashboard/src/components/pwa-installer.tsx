@@ -17,6 +17,7 @@ export function PwaInstaller() {
   const [isIos, setIsIos] = useState(false);
   const [iosHintOpen, setIosHintOpen] = useState(false);
   const [installed, setInstalled] = useState(false);
+  const [dismissed, setDismissed] = useState(false);
 
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return;
@@ -80,9 +81,10 @@ export function PwaInstaller() {
     localStorage.setItem(DISMISS_KEY, String(Date.now()));
     setPromptEvent(null);
     setIosHintOpen(false);
+    setDismissed(true);
   }
 
-  if (installed) return null;
+  if (installed || dismissed) return null;
   if (!promptEvent && !isIos) return null;
 
   return (
