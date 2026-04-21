@@ -66,7 +66,9 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      <main className="flex-1 overflow-x-hidden">{children}</main>
+      <main className="flex-1 overflow-x-hidden pb-[calc(64px+env(safe-area-inset-bottom))] lg:pb-0">
+        {children}
+      </main>
     </div>
   );
 }
