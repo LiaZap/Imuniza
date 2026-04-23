@@ -8,7 +8,7 @@
     "dev": "dotenv -e ../../.env -- tsx watch src/server.ts",
     "build": "tsc",
     "start": "tsx src/server.ts",
-    "start:prod": "tsx src/server.ts",
+    "start:prod": "pnpm --filter @imuniza/db exec prisma migrate deploy && tsx src/server.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --ext .ts",
     "reindex": "dotenv -e ../../.env -- tsx src/scripts/reindex.ts",

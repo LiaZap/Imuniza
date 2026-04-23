@@ -22,6 +22,7 @@ import { authGuard } from './plugins/authGuard.js';
 import { startIncomingMessageWorker } from './workers/incomingMessage.js';
 import { startAgentTurnWorker } from './workers/agentTurn.js';
 import { startReminderDispatcher } from './workers/reminderDispatcher.js';
+import { startInstanceMonitor } from './workers/instanceMonitor.js';
 
 async function buildServer() {
   const app = Fastify({
@@ -83,10 +84,12 @@ async function main() {
   const worker = startIncomingMessageWorker(app.log);
   const agentWorker = startAgentTurnWorker(app.log);
   const reminderWorker = startReminderDispatcher(app.log);
+  const instanceMonitor = startInstanceMonitor(app.log);
 
   const shutdown = async () => {
     app.log.info('shutdown signal received');
     reminderWorker.stop();
+    instanceMonitor.stop();
     await worker.close();
     await agentWorker.close();
     await app.close();

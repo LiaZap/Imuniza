@@ -5,6 +5,7 @@ import { LogoutButton } from './logout-button';
 import { NotificationsListener } from './notifications-listener';
 import { MobileNav } from './mobile-nav';
 import { navItems } from './nav-items';
+import { InstanceStatusBanner } from './instance-status-banner';
 
 export default async function AppLayout({ children }: { children: ReactNode }) {
   const user = await requireUser();
@@ -67,6 +68,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       </aside>
 
       <main className="flex-1 overflow-x-hidden pb-[calc(64px+env(safe-area-inset-bottom))] lg:pb-0">
+        <InstanceStatusBanner show={user.role === 'admin'} />
         {children}
       </main>
     </div>

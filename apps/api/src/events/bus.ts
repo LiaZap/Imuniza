@@ -32,6 +32,13 @@ export type DomainEvent =
       tenantId: string;
       conversationId: string;
       pausedUntil: string;
+    }
+  | {
+      type: 'instance.state_changed';
+      tenantId: string;
+      state: 'connected' | 'connecting' | 'disconnected' | 'pairing' | 'unknown';
+      phone?: string;
+      profileName?: string;
     };
 
 class DomainEventBus extends EventEmitter {
