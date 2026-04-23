@@ -16,6 +16,7 @@
     "db:studio": "dotenv -e ../../.env -- prisma studio",
     "db:seed": "dotenv -e ../../.env -- tsx prisma/seed.ts",
     "db:demo": "dotenv -e ../../.env -- tsx prisma/demo-seed.ts",
+    "db:persona": "dotenv -e ../../.env -- tsx prisma/demo-persona.ts",
     "typecheck": "tsc --noEmit",
     "build": "tsc"
   },
