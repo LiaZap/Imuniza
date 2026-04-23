@@ -2,6 +2,8 @@ import type {
   DownloadedMedia,
   InboundMediaKind,
   InboundMessage,
+  SendMediaInput,
+  SendMediaResponse,
   SendTextInput,
   SendTextResponse,
   UazapiConfig,
@@ -30,6 +32,39 @@ export class UazapiClient {
     if (!res.ok) {
       const text = await res.text().catch(() => '');
       throw new Error(`Uazapi send/text failed (${res.status}): ${text}`);
+    }
+
+    const json = (await res.json()) as { messageid?: string; id?: string; status?: string };
+    return {
+      id: json.messageid ?? json.id ?? '',
+      status: json.status ?? 'sent',
+      raw: json,
+    };
+  }
+
+  /**
+   * Envia mídia (imagem, áudio, vídeo ou documento) via POST /send/media.
+   * Campo `file` aceita URL pública, caminho local ou base64, conforme docs Uazapi.
+   */
+  async sendMedia(input: SendMediaInput): Promise<SendMediaResponse> {
+    const body: Record<string, unknown> = {
+      number: input.number,
+      type: input.kind,
+      file: input.file,
+      delay: input.delayMs ?? 0,
+    };
+    if (input.text) body.text = input.text;
+    if (input.kind === 'document' && input.filename) body.docName = input.filename;
+
+    const res = await fetch(`${this.baseUrl}/send/media`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', token: this.token },
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new Error(`Uazapi send/media failed (${res.status}): ${text}`);
     }
 
     const json = (await res.json()) as { messageid?: string; id?: string; status?: string };

@@ -16,6 +16,22 @@ export interface SendTextResponse {
   raw?: unknown;
 }
 
+export type SendMediaKind = 'image' | 'audio' | 'video' | 'document';
+
+export interface SendMediaInput {
+  number: string;
+  kind: SendMediaKind;
+  /** URL pública, caminho do arquivo ou base64 aceito pela Uazapi. */
+  file: string;
+  /** Texto acompanhante (caption para imagem/vídeo, corpo para documento). */
+  text?: string;
+  /** Nome exibido quando kind === 'document'. */
+  filename?: string;
+  delayMs?: number;
+}
+
+export type SendMediaResponse = SendTextResponse;
+
 export type InboundMediaKind = 'audio' | 'image' | 'document' | 'video';
 
 export interface InboundMessage {
