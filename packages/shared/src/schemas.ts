@@ -23,31 +23,66 @@ export const VaccinePackageItemSchema = z.object({
 
 export type VaccinePackageItem = z.infer<typeof VaccinePackageItemSchema>;
 
-export const UazapiWebhookMessageSchema = z.object({
-  event: z.string(),
-  instance: z.string().optional(),
-  data: z
-    .object({
-      key: z
-        .object({
-          remoteJid: z.string().optional(),
-          fromMe: z.boolean().optional(),
-          id: z.string().optional(),
-        })
-        .passthrough()
-        .optional(),
-      message: z
-        .object({
-          conversation: z.string().optional(),
-          extendedTextMessage: z.object({ text: z.string() }).passthrough().optional(),
-        })
-        .passthrough()
-        .optional(),
-      pushName: z.string().optional(),
-      messageTimestamp: z.union([z.number(), z.string()]).optional(),
-    })
-    .passthrough()
-    .optional(),
-});
+// Formato real do webhook da Uazapi (uazapiGO-Webhook/1.0)
+// Enviamos o token da instância no campo body.token, então validamos por ali.
+export const UazapiWebhookMessageSchema = z
+  .object({
+    EventType: z.string().optional(),
+    event: z.string().optional(), // fallback p/ eventuais variantes
+    instanceName: z.string().optional(),
+    instance: z.string().optional(),
+    owner: z.string().optional(),
+    token: z.string().optional(),
+    BaseUrl: z.string().optional(),
+    chat: z
+      .object({
+        id: z.string().optional(),
+        name: z.string().optional(),
+        wa_chatid: z.string().optional(),
+        wa_isGroup: z.boolean().optional(),
+        wa_name: z.string().optional(),
+        wa_contactName: z.string().optional(),
+        lead_fullName: z.string().optional(),
+        lead_name: z.string().optional(),
+        image: z.string().optional(),
+        imagePreview: z.string().optional(),
+      })
+      .passthrough()
+      .optional(),
+    message: z
+      .object({
+        id: z.string().optional(),
+        messageid: z.string().optional(),
+        chatid: z.string().optional(),
+        chatlid: z.string().optional(),
+        sender: z.string().optional(),
+        sender_pn: z.string().optional(),
+        sender_lid: z.string().optional(),
+        senderName: z.string().optional(),
+        groupName: z.string().optional(),
+        owner: z.string().optional(),
+        fromMe: z.boolean().optional(),
+        isGroup: z.boolean().optional(),
+        type: z.string().optional(), // text | image | audio | video | document | ...
+        messageType: z.string().optional(), // Conversation | ExtendedTextMessage | AudioMessage | ImageMessage | ...
+        mediaType: z.string().optional(),
+        content: z.string().optional(),
+        text: z.string().optional(),
+        caption: z.string().optional(),
+        fileName: z.string().optional(),
+        mimeType: z.string().optional(),
+        mimetype: z.string().optional(),
+        fileURL: z.string().optional(),
+        mediaURL: z.string().optional(),
+        url: z.string().optional(),
+        seconds: z.number().optional(),
+        messageTimestamp: z.union([z.number(), z.string()]).optional(),
+        status: z.string().optional(),
+        source: z.string().optional(),
+      })
+      .passthrough()
+      .optional(),
+  })
+  .passthrough();
 
 export type UazapiWebhookMessage = z.infer<typeof UazapiWebhookMessageSchema>;

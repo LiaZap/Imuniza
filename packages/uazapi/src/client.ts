@@ -96,74 +96,121 @@ export class UazapiClient {
 
   parseInbound(payload: unknown): InboundMessage | null {
     const envelope = payload as {
+      EventType?: string;
       event?: string;
-      data?: {
-        key?: { remoteJid?: string; fromMe?: boolean; id?: string };
-        message?: {
-          conversation?: string;
-          extendedTextMessage?: { text?: string };
-          audioMessage?: { url?: string; mimetype?: string; seconds?: number };
-          imageMessage?: { url?: string; mimetype?: string; caption?: string };
-          videoMessage?: { url?: string; mimetype?: string; caption?: string };
-          documentMessage?: { url?: string; mimetype?: string; fileName?: string };
-        };
-        pushName?: string;
+      chat?: {
+        name?: string;
+        wa_name?: string;
+        wa_contactName?: string;
+        lead_fullName?: string;
+        lead_name?: string;
+        wa_isGroup?: boolean;
+      };
+      message?: {
+        id?: string;
+        messageid?: string;
+        chatid?: string;
+        sender_pn?: string;
+        senderName?: string;
+        fromMe?: boolean;
+        isGroup?: boolean;
+        type?: string;
+        messageType?: string;
+        mediaType?: string;
+        content?: string;
+        text?: string;
+        caption?: string;
+        fileName?: string;
+        mimeType?: string;
+        mimetype?: string;
+        fileURL?: string;
+        mediaURL?: string;
+        url?: string;
+        seconds?: number;
         messageTimestamp?: number | string;
       };
     };
 
-    const data = envelope?.data;
-    if (!data?.key?.remoteJid || data.key.fromMe) return null;
-    const msg = data.message ?? {};
+    const msg = envelope?.message;
+    if (!msg) return null;
 
-    let text = msg.conversation ?? msg.extendedTextMessage?.text ?? '';
+    // Ignorar ecos da própria instância
+    if (msg.fromMe) return null;
+
+    // Ignorar mensagens de grupo (o bot é 1:1 por enquanto)
+    if (msg.isGroup || envelope.chat?.wa_isGroup) return null;
+
+    // Extrair telefone: chatid = "5511xxx@s.whatsapp.net" → "5511xxx"
+    const rawFrom = msg.sender_pn ?? msg.chatid ?? '';
+    const from = rawFrom.replace(/@.*/, '').replace(/:\d+$/, '');
+    if (!from) return null;
+
+    // Tipo de mídia — Uazapi usa 'type' (text/image/audio/video/document)
+    // ou 'messageType' (Conversation/ImageMessage/AudioMessage/...)
+    const rawType = (msg.type ?? '').toLowerCase();
+    const rawMessageType = (msg.messageType ?? '').toLowerCase();
+    const mediaTypeLower = (msg.mediaType ?? '').toLowerCase();
+
+    const isText =
+      rawType === 'text' ||
+      rawMessageType === 'conversation' ||
+      rawMessageType === 'extendedtextmessage';
+    const isAudio =
+      rawType === 'audio' ||
+      rawType === 'ptt' ||
+      rawMessageType.includes('audio') ||
+      mediaTypeLower === 'audio';
+    const isImage =
+      rawType === 'image' || rawMessageType.includes('image') || mediaTypeLower === 'image';
+    const isVideo =
+      rawType === 'video' || rawMessageType.includes('video') || mediaTypeLower === 'video';
+    const isDocument =
+      rawType === 'document' ||
+      rawMessageType.includes('document') ||
+      mediaTypeLower === 'document';
+
+    let text = msg.text ?? (isText ? msg.content : '') ?? '';
     let media: InboundMessage['media'];
 
-    if (msg.audioMessage) {
-      media = {
-        kind: 'audio' as InboundMediaKind,
-        mimetype: msg.audioMessage.mimetype,
-        url: msg.audioMessage.url,
-        seconds: msg.audioMessage.seconds,
-      };
+    const mediaUrl = msg.fileURL ?? msg.mediaURL ?? msg.url;
+    const mime = msg.mimeType ?? msg.mimetype;
+
+    if (isAudio) {
+      media = { kind: 'audio' as InboundMediaKind, mimetype: mime, url: mediaUrl, seconds: msg.seconds };
       if (!text) text = '[áudio]';
-    } else if (msg.imageMessage) {
-      media = {
-        kind: 'image' as InboundMediaKind,
-        mimetype: msg.imageMessage.mimetype,
-        url: msg.imageMessage.url,
-        caption: msg.imageMessage.caption,
-      };
-      if (!text) text = msg.imageMessage.caption ?? '[imagem]';
-    } else if (msg.videoMessage) {
-      media = {
-        kind: 'video' as InboundMediaKind,
-        mimetype: msg.videoMessage.mimetype,
-        url: msg.videoMessage.url,
-        caption: msg.videoMessage.caption,
-      };
-      if (!text) text = msg.videoMessage.caption ?? '[vídeo]';
-    } else if (msg.documentMessage) {
-      media = {
-        kind: 'document' as InboundMediaKind,
-        mimetype: msg.documentMessage.mimetype,
-        url: msg.documentMessage.url,
-      };
-      if (!text) text = msg.documentMessage.fileName ?? '[documento]';
+    } else if (isImage) {
+      media = { kind: 'image' as InboundMediaKind, mimetype: mime, url: mediaUrl, caption: msg.caption };
+      if (!text) text = msg.caption ?? '[imagem]';
+    } else if (isVideo) {
+      media = { kind: 'video' as InboundMediaKind, mimetype: mime, url: mediaUrl, caption: msg.caption };
+      if (!text) text = msg.caption ?? '[vídeo]';
+    } else if (isDocument) {
+      media = { kind: 'document' as InboundMediaKind, mimetype: mime, url: mediaUrl };
+      if (!text) text = msg.fileName ?? '[documento]';
     }
 
     if (!text && !media) return null;
 
-    const timestamp =
-      typeof data.messageTimestamp === 'string'
-        ? Number.parseInt(data.messageTimestamp, 10)
-        : (data.messageTimestamp ?? Math.floor(Date.now() / 1000));
+    // Uazapi manda timestamp em ms. InboundMessage usa segundos.
+    const rawTs =
+      typeof msg.messageTimestamp === 'string'
+        ? Number.parseInt(msg.messageTimestamp, 10)
+        : (msg.messageTimestamp ?? Date.now());
+    const timestamp = rawTs > 1e12 ? Math.floor(rawTs / 1000) : rawTs;
+
+    const pushName =
+      msg.senderName ||
+      envelope.chat?.lead_fullName ||
+      envelope.chat?.lead_name ||
+      envelope.chat?.wa_contactName ||
+      envelope.chat?.wa_name ||
+      envelope.chat?.name;
 
     return {
-      id: data.key.id ?? '',
-      from: data.key.remoteJid.replace(/@.*/, ''),
+      id: msg.messageid ?? msg.id ?? '',
+      from,
       text,
-      pushName: data.pushName,
+      pushName: pushName || undefined,
       timestamp,
       media,
       raw: payload,

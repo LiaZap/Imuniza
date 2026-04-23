@@ -7,8 +7,14 @@ import { env } from '../env.js';
 
 export async function webhookRoutes(app: FastifyInstance): Promise<void> {
   app.post('/uazapi', async (req, reply) => {
-    const secret = req.headers['x-webhook-secret'];
-    if (secret !== env.UAZAPI_WEBHOOK_SECRET) {
+    // Autenticação aceita uma das duas formas:
+    // 1) body.token === UAZAPI_TOKEN (formato padrão que a Uazapi envia)
+    // 2) header x-webhook-secret === UAZAPI_WEBHOOK_SECRET (alternativa)
+    const body = req.body as { token?: string } | undefined;
+    const headerSecret = req.headers['x-webhook-secret'];
+    const bodyTokenOk = !!body?.token && body.token === env.UAZAPI_TOKEN;
+    const headerSecretOk = !!headerSecret && headerSecret === env.UAZAPI_WEBHOOK_SECRET;
+    if (!bodyTokenOk && !headerSecretOk) {
       return reply.code(401).send({ error: 'unauthorized' });
     }
 
@@ -16,6 +22,12 @@ export async function webhookRoutes(app: FastifyInstance): Promise<void> {
     if (!parsed.success) {
       req.log.warn({ issues: parsed.error.issues }, 'webhook payload did not match schema');
       return reply.code(202).send({ status: 'ignored', reason: 'schema' });
+    }
+
+    // Processamos apenas evento de mensagens
+    const eventType = parsed.data.EventType ?? parsed.data.event;
+    if (eventType && !/message/i.test(eventType)) {
+      return reply.code(202).send({ status: 'ignored', reason: `event:${eventType}` });
     }
 
     const inbound = uazapi.parseInbound(parsed.data);
