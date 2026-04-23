@@ -17,6 +17,7 @@ import { campaignsRoutes } from './routes/campaigns.js';
 import { usersRoutes } from './routes/users.js';
 import { reportsRoutes } from './routes/reports.js';
 import { appointmentsRoutes } from './routes/appointments.js';
+import { instanceRoutes } from './routes/instance.js';
 import { authGuard } from './plugins/authGuard.js';
 import { startIncomingMessageWorker } from './workers/incomingMessage.js';
 import { startReminderDispatcher } from './workers/reminderDispatcher.js';
@@ -70,6 +71,7 @@ async function buildServer() {
     await instance.register(usersRoutes, { prefix: '/users' });
     await instance.register(reportsRoutes, { prefix: '/reports' });
     await instance.register(appointmentsRoutes, { prefix: '/appointments' });
+    await instance.register(instanceRoutes, { prefix: '/instance' });
   });
 
   return app;

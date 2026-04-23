@@ -2,6 +2,8 @@ import type {
   DownloadedMedia,
   InboundMediaKind,
   InboundMessage,
+  InstanceConnectionState,
+  InstanceStatus,
   SendMediaInput,
   SendMediaResponse,
   SendTextInput,
@@ -71,6 +73,111 @@ export class UazapiClient {
     return {
       id: json.messageid ?? json.id ?? '',
       status: json.status ?? 'sent',
+      raw: json,
+    };
+  }
+
+  /**
+   * Inicia a conexão da instância. Se já estiver desconectada, a Uazapi gera QR
+   * e/ou código de pareamento; com `phone`, força o uso de pairing code numérico.
+   */
+  async connectInstance(phone?: string): Promise<InstanceStatus> {
+    const res = await fetch(`${this.baseUrl}/instance/connect`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', token: this.token },
+      body: JSON.stringify(phone ? { phone } : {}),
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new Error(`Uazapi instance/connect failed (${res.status}): ${text}`);
+    }
+    const json = (await res.json()) as Record<string, unknown>;
+    return this.toInstanceStatus(json);
+  }
+
+  /** Consulta o estado atual da instância (QR ainda válido, já conectada, etc). */
+  async getInstanceStatus(): Promise<InstanceStatus> {
+    // /instance/status é o mais comum, /instance/info aparece em algumas versões.
+    const endpoints = [`${this.baseUrl}/instance/status`, `${this.baseUrl}/instance`];
+    let lastErr: string = '';
+    for (const endpoint of endpoints) {
+      const res = await fetch(endpoint, {
+        method: 'GET',
+        headers: { Accept: 'application/json', token: this.token },
+      });
+      if (res.ok) {
+        const json = (await res.json()) as Record<string, unknown>;
+        return this.toInstanceStatus(json);
+      }
+      lastErr = `${endpoint} -> ${res.status}`;
+    }
+    throw new Error(`Uazapi instance status failed: ${lastErr}`);
+  }
+
+  /** Desconecta a instância atual (força logout). */
+  async disconnectInstance(): Promise<void> {
+    const endpoints = [
+      `${this.baseUrl}/instance/disconnect`,
+      `${this.baseUrl}/instance/logout`,
+    ];
+    for (const endpoint of endpoints) {
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', token: this.token },
+      });
+      if (res.ok) return;
+    }
+    throw new Error('Uazapi instance disconnect failed');
+  }
+
+  /** Normaliza as variações de formato que a Uazapi retorna. */
+  private toInstanceStatus(json: Record<string, unknown>): InstanceStatus {
+    const pickString = (obj: Record<string, unknown>, keys: string[]): string | undefined => {
+      for (const k of keys) {
+        const v = obj[k];
+        if (typeof v === 'string' && v.length > 0) return v;
+      }
+      return undefined;
+    };
+
+    // Alguns endpoints retornam { instance: {...}, qrcode: "..."}
+    const instanceBag = (json.instance as Record<string, unknown>) ?? json;
+
+    const rawState =
+      pickString(instanceBag, ['status', 'state', 'connectionStatus']) ??
+      pickString(json, ['status', 'state']);
+
+    let state: InstanceConnectionState = 'unknown';
+    if (rawState) {
+      const s = rawState.toLowerCase();
+      if (s.includes('connected') || s === 'open') state = 'connected';
+      else if (s.includes('connect') || s === 'loading') state = 'connecting';
+      else if (s.includes('pair') || s.includes('qr')) state = 'pairing';
+      else if (s.includes('disconn') || s === 'close' || s === 'closed') state = 'disconnected';
+    }
+
+    const qrcode =
+      pickString(json, ['qrcode', 'qr', 'base64', 'qr_base64']) ??
+      pickString(instanceBag, ['qrcode', 'qr', 'base64', 'qr_base64']);
+
+    const pairCode =
+      pickString(json, ['paircode', 'pairingCode', 'pairCode', 'code']) ??
+      pickString(instanceBag, ['paircode', 'pairingCode', 'pairCode', 'code']);
+
+    const phone =
+      pickString(instanceBag, ['phone', 'owner', 'ownerJid', 'wa_number']) ??
+      pickString(json, ['phone', 'owner']);
+
+    const profileName =
+      pickString(instanceBag, ['profileName', 'name', 'pushName', 'wa_name']) ??
+      pickString(json, ['profileName', 'name']);
+
+    return {
+      state,
+      qrcode,
+      pairCode,
+      phone: phone?.replace(/@.*/, ''),
+      profileName,
       raw: json,
     };
   }

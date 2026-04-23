@@ -32,6 +32,25 @@ export interface SendMediaInput {
 
 export type SendMediaResponse = SendTextResponse;
 
+export type InstanceConnectionState =
+  | 'connected'
+  | 'connecting'
+  | 'disconnected'
+  | 'pairing'
+  | 'unknown';
+
+export interface InstanceStatus {
+  state: InstanceConnectionState;
+  /** QR code em data URL ou base64 puro, quando disponível. */
+  qrcode?: string;
+  /** Código de pareamento curto (8 chars), quando disponível. */
+  pairCode?: string;
+  /** Telefone conectado (E.164 sem +). */
+  phone?: string;
+  profileName?: string;
+  raw?: unknown;
+}
+
 export type InboundMediaKind = 'audio' | 'image' | 'document' | 'video';
 
 export interface InboundMessage {

@@ -4,6 +4,7 @@ import { apiGet } from '@/lib/api-server';
 import { requireUser } from '@/lib/auth';
 import type { TenantSettings } from '@/lib/types';
 import { SettingsForm } from './form';
+import { WhatsappConnection } from './whatsapp-connection';
 
 export default async function SettingsPage() {
   const user = await requireUser();
@@ -24,6 +25,7 @@ export default async function SettingsPage() {
           Alterações afetam as próximas respostas da IA.
         </p>
       </header>
+      <WhatsappConnection />
       <SettingsForm initial={settings} />
     </div>
   );
