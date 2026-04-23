@@ -301,11 +301,10 @@ export class UazapiClient {
     const msg = envelope?.message;
     if (!msg) return null;
 
-    // Ignorar ecos da própria instância
-    if (msg.fromMe) return null;
-
     // Ignorar mensagens de grupo (o bot é 1:1 por enquanto)
     if (msg.isGroup || envelope.chat?.wa_isGroup) return null;
+
+    const fromMe = msg.fromMe === true;
 
     // Extrair telefone: chatid = "5511xxx@s.whatsapp.net" → "5511xxx"
     const rawFrom = msg.sender_pn ?? msg.chatid ?? '';
@@ -399,6 +398,7 @@ export class UazapiClient {
       text,
       pushName: pushName || undefined,
       timestamp,
+      fromMe,
       media,
       raw: payload,
     };

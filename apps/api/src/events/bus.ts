@@ -26,6 +26,12 @@ export type DomainEvent =
       type: 'conversation.closed';
       tenantId: string;
       conversationId: string;
+    }
+  | {
+      type: 'conversation.ai_paused';
+      tenantId: string;
+      conversationId: string;
+      pausedUntil: string;
     };
 
 class DomainEventBus extends EventEmitter {

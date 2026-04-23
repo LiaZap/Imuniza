@@ -1,8 +1,15 @@
 import type { FastifyInstance } from 'fastify';
+import { prisma } from '@imuniza/db';
 import { UazapiWebhookMessageSchema } from '@imuniza/shared';
 import { uazapi } from '../services/uazapi.js';
 import { getDefaultTenantId } from '../services/tenant.js';
-import { incomingMessageQueue } from '../queue/queues.js';
+import {
+  agentTurnJobId,
+  agentTurnQueue,
+  incomingMessageQueue,
+} from '../queue/queues.js';
+import { addMessage, getOrCreateActiveConversation, upsertPatient } from '../services/conversation.js';
+import { eventBus } from '../events/bus.js';
 import { env } from '../env.js';
 
 export async function webhookRoutes(app: FastifyInstance): Promise<void> {
@@ -43,6 +50,89 @@ export async function webhookRoutes(app: FastifyInstance): Promise<void> {
 
     const tenantId = await getDefaultTenantId();
 
+    // ————————————————————————————————————————————————
+    // fromMe = mensagem saiu do proprio numero da clinica.
+    // Dois casos:
+    //   (a) eh o echo do nosso proprio send (AI ou atendente no dashboard) —
+    //       ja salvamos a mensagem com uazapiMessageId, entao deduplica
+    //   (b) um humano respondeu pelo WhatsApp do celular da clinica —
+    //       salva como role='human', pausa a IA por 2h
+    // ————————————————————————————————————————————————
+    if (inbound.fromMe) {
+      // (a) echo: ja existe Message com esse uazapiMessageId?
+      if (inbound.id) {
+        const echoed = await prisma.message.findFirst({
+          where: {
+            metadata: { path: ['uazapiMessageId'], equals: inbound.id },
+          },
+          select: { id: true },
+        });
+        if (echoed) {
+          return reply.code(202).send({ status: 'ignored', reason: 'self-echo' });
+        }
+      }
+
+      // (b) humano respondeu pelo celular. Precisa de paciente/conversa.
+      if (!inbound.from) {
+        return reply.code(202).send({ status: 'ignored', reason: 'fromMe-no-target' });
+      }
+
+      const patient = await upsertPatient({
+        tenantId,
+        phone: inbound.from,
+        name: inbound.pushName,
+      });
+      const conversation = await getOrCreateActiveConversation({
+        tenantId,
+        patientId: patient.id,
+      });
+
+      const pauseUntil = new Date(Date.now() + env.AI_HUMAN_OVERRIDE_PAUSE_MS);
+
+      await prisma.conversation.update({
+        where: { id: conversation.id },
+        data: {
+          aiPausedUntil: pauseUntil,
+          lastMessageAt: new Date(),
+        },
+      });
+
+      await addMessage({
+        conversationId: conversation.id,
+        role: 'human',
+        content: inbound.text || (inbound.media ? `[${inbound.media.kind}]` : ''),
+        metadata: {
+          uazapiMessageId: inbound.id,
+          source: 'whatsapp_phone',
+          fromMe: true,
+          pausedUntil: pauseUntil.toISOString(),
+        },
+      });
+
+      // Cancela qualquer agent_turn pendente para nao responder agora
+      try {
+        const pending = await agentTurnQueue.getJob(agentTurnJobId(conversation.id));
+        if (pending) await pending.remove().catch(() => undefined);
+      } catch {
+        /* ignore */
+      }
+
+      eventBus.emitDomain({
+        type: 'conversation.ai_paused',
+        tenantId,
+        conversationId: conversation.id,
+        pausedUntil: pauseUntil.toISOString(),
+      });
+
+      req.log.info(
+        { conversationId: conversation.id, pauseUntil: pauseUntil.toISOString() },
+        'IA pausada: humano respondeu pelo numero da clinica',
+      );
+
+      return reply.code(202).send({ status: 'human_takeover', pauseUntil });
+    }
+
+    // Fluxo normal: mensagem do paciente
     await incomingMessageQueue.add('process', {
       tenantId,
       from: inbound.from,

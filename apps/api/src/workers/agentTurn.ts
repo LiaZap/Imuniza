@@ -18,7 +18,7 @@ export function startAgentTurnWorker(logger: FastifyBaseLogger) {
     // Re-checa status: atendente pode ter assumido durante o buffer
     const conv = await prisma.conversation.findUnique({
       where: { id: conversationId },
-      select: { status: true },
+      select: { status: true, aiPausedUntil: true },
     });
     if (!conv) {
       logger.warn({ conversationId }, 'agent_turn: conversation not found');
@@ -28,6 +28,13 @@ export function startAgentTurnWorker(logger: FastifyBaseLogger) {
       logger.info(
         { conversationId, status: conv.status },
         'agent_turn: conversation now human-handled, skipping',
+      );
+      return;
+    }
+    if (conv.aiPausedUntil && conv.aiPausedUntil.getTime() > Date.now()) {
+      logger.info(
+        { conversationId, until: conv.aiPausedUntil.toISOString() },
+        'agent_turn: IA pausada (humano respondeu pelo numero da clinica), skipping',
       );
       return;
     }

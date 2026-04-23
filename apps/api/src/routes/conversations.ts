@@ -123,8 +123,10 @@ export async function conversationsRoutes(app: FastifyInstance): Promise<void> {
       });
     }
 
+    let sentMessageId = '';
     try {
-      await uazapi.sendText({ number: conversation.patient.phone, text });
+      const sent = await uazapi.sendText({ number: conversation.patient.phone, text });
+      sentMessageId = sent.id;
     } catch (err) {
       req.log.error({ err }, 'failed to send human message via uazapi');
       return reply.code(502).send({ error: 'uazapi_failed', detail: (err as Error).message });
@@ -134,7 +136,11 @@ export async function conversationsRoutes(app: FastifyInstance): Promise<void> {
       conversationId: id,
       role: 'human',
       content: text,
-      metadata: userId ? { sentBy: userId } : {},
+      metadata: {
+        ...(userId ? { sentBy: userId } : {}),
+        ...(sentMessageId ? { uazapiMessageId: sentMessageId } : {}),
+        source: 'dashboard',
+      },
     });
 
     return { message };

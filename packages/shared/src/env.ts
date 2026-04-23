@@ -18,6 +18,14 @@ const envSchema = z.object({
   /** Delay do debounce das mensagens do paciente antes da IA responder (ms). */
   MESSAGE_BUFFER_MS: z.coerce.number().int().min(0).max(30_000).default(4000),
 
+  /** Quanto tempo a IA fica pausada depois que um humano respondeu pelo numero real. */
+  AI_HUMAN_OVERRIDE_PAUSE_MS: z.coerce
+    .number()
+    .int()
+    .min(60_000)
+    .max(24 * 60 * 60_000)
+    .default(2 * 60 * 60_000),
+
   API_PORT: z.coerce.number().int().positive().default(3001),
   API_BASE_URL: z.string().url(),
   DASHBOARD_BASE_URL: z.string().url(),

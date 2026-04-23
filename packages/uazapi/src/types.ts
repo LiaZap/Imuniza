@@ -55,10 +55,17 @@ export type InboundMediaKind = 'audio' | 'image' | 'document' | 'video';
 
 export interface InboundMessage {
   id: string;
+  /**
+   * Numero do paciente (o "outro lado"). Funciona igual em ambas direcoes:
+   * quando fromMe = false, eh quem enviou; quando fromMe = true, eh o
+   * destinatario (o paciente a quem o numero da clinica respondeu).
+   */
   from: string;
   text: string;
   pushName?: string;
   timestamp: number;
+  /** True quando a mensagem saiu do proprio numero da clinica (humano ou AI). */
+  fromMe: boolean;
   media?: {
     kind: InboundMediaKind;
     mimetype?: string;

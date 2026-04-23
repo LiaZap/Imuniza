@@ -170,6 +170,13 @@ export function startIncomingMessageWorker(logger: FastifyBaseLogger) {
       );
       return;
     }
+    if (conversation.aiPausedUntil && conversation.aiPausedUntil.getTime() > Date.now()) {
+      logger.info(
+        { conversationId: conversation.id, until: conversation.aiPausedUntil.toISOString() },
+        'IA pausada, nao agendando agent_turn',
+      );
+      return;
+    }
 
     // Debounce: remove o job anterior (se houver) e agenda de novo.
     // Dessa forma, se o paciente mandar varias mensagens "picadas",

@@ -139,6 +139,8 @@ model Conversation {
   status           ConversationStatus @default(active)
   assignedToUserId String?            @db.Uuid
   lastMessageAt    DateTime           @default(now())
+  /// Ate este timestamp a IA nao responde (atendente respondeu pelo numero real)
+  aiPausedUntil    DateTime?
   metadata         Json               @default("{}")
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
@@ -152,6 +154,7 @@ model Conversation {
   @@index([tenantId, status])
   @@index([patientId])
   @@index([lastMessageAt])
+  @@index([aiPausedUntil])
   @@map("conversations")
 }
 
