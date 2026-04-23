@@ -5,6 +5,7 @@ import { apiGet } from '@/lib/api-server';
 import { requireUser } from '@/lib/auth';
 import type { Conversation, TenantSettings, Vaccine } from '@/lib/types';
 import { ChatPanel } from './chat-panel';
+import { AiPauseBanner } from './ai-pause-banner';
 
 function initials(name: string | null, phone: string): string {
   if (name) {
@@ -81,6 +82,12 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
             </div>
           </div>
         </div>
+
+        <AiPauseBanner
+          conversationId={conversation.id}
+          pausedUntil={conversation.aiPausedUntil ?? null}
+          canResume={user.role === 'admin' || user.role === 'attendant'}
+        />
 
         {conversation.handoffs?.[0]?.summary && (
           <div className="mt-4 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">

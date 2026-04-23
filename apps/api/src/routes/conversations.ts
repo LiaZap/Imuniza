@@ -146,6 +146,30 @@ export async function conversationsRoutes(app: FastifyInstance): Promise<void> {
     return { message };
   });
 
+  app.post('/:id/resume-ai', async (req, reply) => {
+    const { id } = paramsSchema.parse(req.params);
+    const conversation = await prisma.conversation.findUnique({ where: { id } });
+    if (!conversation) return reply.code(404).send({ error: 'not_found' });
+    if (!conversation.aiPausedUntil) {
+      return reply.send({ id, aiPausedUntil: null });
+    }
+
+    const updated = await prisma.conversation.update({
+      where: { id },
+      data: { aiPausedUntil: null },
+      select: { id: true, aiPausedUntil: true, tenantId: true },
+    });
+
+    eventBus.emitDomain({
+      type: 'conversation.ai_paused',
+      tenantId: updated.tenantId,
+      conversationId: updated.id,
+      pausedUntil: '', // string vazia indica resumo
+    });
+
+    return { id: updated.id, aiPausedUntil: updated.aiPausedUntil };
+  });
+
   app.post('/:id/close', async (req, reply) => {
     const { id } = paramsSchema.parse(req.params);
     const conversation = await prisma.conversation.findUnique({ where: { id } });

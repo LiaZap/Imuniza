@@ -6,6 +6,7 @@ import {
   Clock,
   Inbox,
   MessageSquare,
+  Pause,
   Sparkles,
   Users,
 } from 'lucide-react';
@@ -145,12 +146,27 @@ function KpiCard({
   );
 }
 
+function aiPauseInfo(iso?: string | null): { paused: boolean; untilLabel: string } {
+  if (!iso) return { paused: false, untilLabel: '' };
+  const until = new Date(iso).getTime();
+  if (Number.isNaN(until) || until <= Date.now()) return { paused: false, untilLabel: '' };
+  const d = new Date(until);
+  const today = new Date();
+  const sameDay =
+    d.getFullYear() === today.getFullYear() &&
+    d.getMonth() === today.getMonth() &&
+    d.getDate() === today.getDate();
+  const time = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  return { paused: true, untilLabel: sameDay ? `até ${time}` : `até ${d.toLocaleDateString('pt-BR')} ${time}` };
+}
+
 function ConversationCard({ c, featured }: { c: Conversation; featured?: boolean }) {
   const last = c.messages[0];
   const age = relativeMinutes(c.lastMessageAt);
   const sla = slaStyle(age.minutes);
   const profile = getProfile(c.patient);
   const handoff = c.handoffs?.[0];
+  const pause = aiPauseInfo(c.aiPausedUntil);
 
   return (
     <div
@@ -183,6 +199,15 @@ function ConversationCard({ c, featured }: { c: Conversation; featured?: boolean
                   <span className={`h-1.5 w-1.5 rounded-full ${sla.dot}`} />
                   {age.label} · {sla.label}
                 </span>
+                {pause.paused && (
+                  <span
+                    title="IA pausada porque um humano respondeu pelo WhatsApp"
+                    className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-2 py-0.5 text-[11px] font-semibold text-violet-700 ring-1 ring-violet-200"
+                  >
+                    <Pause className="h-2.5 w-2.5" />
+                    IA pausada {pause.untilLabel}
+                  </span>
+                )}
               </div>
               <div className="mt-0.5 text-xs text-slate-500">
                 {formatPhone(c.patient.phone)}
@@ -226,6 +251,7 @@ function ConversationCard({ c, featured }: { c: Conversation; featured?: boolean
 function AssignedCard({ c }: { c: Conversation }) {
   const age = relativeMinutes(c.lastMessageAt);
   const last = c.messages[0];
+  const pause = aiPauseInfo(c.aiPausedUntil);
   return (
     <Link
       href={`/conversation/${c.id}`}
@@ -239,11 +265,19 @@ function AssignedCard({ c }: { c: Conversation }) {
         {initials(c.patient.name, c.patient.phone)}
       </div>
       <div className="min-w-0 flex-1">
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between gap-2">
           <div className="truncate text-sm font-medium text-slate-900">
             {c.patient.name ?? formatPhone(c.patient.phone)}
           </div>
-          <div className="text-[11px] text-slate-400">{age.label}</div>
+          <div className="flex shrink-0 items-center gap-1.5">
+            {pause.paused && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-violet-50 px-1.5 py-0.5 text-[10px] font-semibold text-violet-700 ring-1 ring-violet-200">
+                <Pause className="h-2.5 w-2.5" />
+                IA off
+              </span>
+            )}
+            <div className="text-[11px] text-slate-400">{age.label}</div>
+          </div>
         </div>
         <div className="mt-0.5 flex items-center gap-2 text-xs text-slate-500">
           <span className="truncate">

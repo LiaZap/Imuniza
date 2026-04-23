@@ -21,6 +21,7 @@ export interface Conversation {
   status: ConversationStatus;
   assignedToUserId: string | null;
   lastMessageAt: string;
+  aiPausedUntil?: string | null;
   createdAt: string;
   patient: Patient;
   assignedTo?: { id: string; name: string; email: string } | null;
