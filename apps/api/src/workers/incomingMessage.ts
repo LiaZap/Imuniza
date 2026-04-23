@@ -2,8 +2,13 @@ import type { FastifyBaseLogger } from 'fastify';
 import type { Job } from 'bullmq';
 import { Prisma, prisma } from '@imuniza/db';
 import { extractVaccineCard, transcribeAudio } from '@imuniza/ai';
-import { registerIncomingMessageWorker, type IncomingMessageJob } from '../queue/queues.js';
-import { runAgent } from '../services/agent.js';
+import {
+  agentTurnJobId,
+  agentTurnQueue,
+  registerIncomingMessageWorker,
+  type IncomingMessageJob,
+} from '../queue/queues.js';
+import { env } from '../env.js';
 import {
   addMessage,
   getOrCreateActiveConversation,
@@ -166,13 +171,34 @@ export function startIncomingMessageWorker(logger: FastifyBaseLogger) {
       return;
     }
 
-    await runAgent({
-      tenantId,
-      conversationId: conversation.id,
-      patientId: patient.id,
-      patientPhone: from,
-      logger,
-    });
+    // Debounce: remove o job anterior (se houver) e agenda de novo.
+    // Dessa forma, se o paciente mandar varias mensagens "picadas",
+    // a IA so responde depois de MESSAGE_BUFFER_MS de silencio.
+    const jobId = agentTurnJobId(conversation.id);
+    try {
+      const existing = await agentTurnQueue.getJob(jobId);
+      if (existing) {
+        await existing.remove().catch(() => undefined);
+      }
+    } catch {
+      /* ignore: job pode ja estar em execucao */
+    }
+
+    await agentTurnQueue.add(
+      'agent-turn',
+      {
+        tenantId,
+        conversationId: conversation.id,
+        patientId: patient.id,
+        patientPhone: from,
+      },
+      { jobId, delay: env.MESSAGE_BUFFER_MS },
+    );
+
+    logger.debug(
+      { conversationId: conversation.id, delayMs: env.MESSAGE_BUFFER_MS },
+      'agent turn debounced',
+    );
   });
 
   worker.on('failed', (job, err) => {

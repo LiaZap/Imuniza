@@ -15,6 +15,9 @@ const envSchema = z.object({
   UAZAPI_INSTANCE: z.string().default(''),
   UAZAPI_WEBHOOK_SECRET: z.string().min(8),
 
+  /** Delay do debounce das mensagens do paciente antes da IA responder (ms). */
+  MESSAGE_BUFFER_MS: z.coerce.number().int().min(0).max(30_000).default(4000),
+
   API_PORT: z.coerce.number().int().positive().default(3001),
   API_BASE_URL: z.string().url(),
   DASHBOARD_BASE_URL: z.string().url(),

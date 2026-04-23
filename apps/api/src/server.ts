@@ -20,6 +20,7 @@ import { appointmentsRoutes } from './routes/appointments.js';
 import { instanceRoutes } from './routes/instance.js';
 import { authGuard } from './plugins/authGuard.js';
 import { startIncomingMessageWorker } from './workers/incomingMessage.js';
+import { startAgentTurnWorker } from './workers/agentTurn.js';
 import { startReminderDispatcher } from './workers/reminderDispatcher.js';
 
 async function buildServer() {
@@ -80,12 +81,14 @@ async function buildServer() {
 async function main() {
   const app = await buildServer();
   const worker = startIncomingMessageWorker(app.log);
+  const agentWorker = startAgentTurnWorker(app.log);
   const reminderWorker = startReminderDispatcher(app.log);
 
   const shutdown = async () => {
     app.log.info('shutdown signal received');
     reminderWorker.stop();
     await worker.close();
+    await agentWorker.close();
     await app.close();
     process.exit(0);
   };
