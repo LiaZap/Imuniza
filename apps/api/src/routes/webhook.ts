@@ -32,7 +32,13 @@ export async function webhookRoutes(app: FastifyInstance): Promise<void> {
 
     const inbound = uazapi.parseInbound(parsed.data);
     if (!inbound) {
-      return reply.code(202).send({ status: 'ignored', reason: 'not-an-inbound-text' });
+      const mt = parsed.data.message?.messageType;
+      const t = parsed.data.message?.type;
+      req.log.debug(
+        { messageType: mt, type: t, fromMe: parsed.data.message?.fromMe, isGroup: parsed.data.message?.isGroup },
+        'webhook message ignored by parser',
+      );
+      return reply.code(202).send({ status: 'ignored', reason: `type:${mt ?? t ?? 'unknown'}` });
     }
 
     const tenantId = await getDefaultTenantId();

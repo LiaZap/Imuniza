@@ -236,6 +236,31 @@ export class UazapiClient {
     throw new Error(`Uazapi media download failed for message ${params.messageId}`);
   }
 
+  /**
+   * Tipos de mensagem Uazapi/WhatsApp que o sistema aceita. Qualquer outro
+   * tipo (reactionMessage, stickerMessage, buttonsResponseMessage,
+   * protocolMessage, callMessage, etc.) eh descartado sem ruido.
+   */
+  static readonly ACCEPTED_MESSAGE_TYPES: ReadonlySet<string> = new Set([
+    'conversation',
+    'ephemeralmessage',
+    'extendedtextmessage',
+    'audiomessage',
+    'imagemessage',
+    'videomessage',
+    'documentmessage',
+  ]);
+
+  /** Campo `type` (shortcut) aceito quando `messageType` nao vier. */
+  static readonly ACCEPTED_CONTENT_TYPES: ReadonlySet<string> = new Set([
+    'text',
+    'audio',
+    'ptt',
+    'image',
+    'video',
+    'document',
+  ]);
+
   parseInbound(payload: unknown): InboundMessage | null {
     const envelope = payload as {
       EventType?: string;
@@ -288,27 +313,47 @@ export class UazapiClient {
     if (!from) return null;
 
     // Tipo de mídia — Uazapi usa 'type' (text/image/audio/video/document)
-    // ou 'messageType' (Conversation/ImageMessage/AudioMessage/...)
+    // ou 'messageType' (Conversation/ImageMessage/AudioMessage/EphemeralMessage/...)
     const rawType = (msg.type ?? '').toLowerCase();
     const rawMessageType = (msg.messageType ?? '').toLowerCase();
     const mediaTypeLower = (msg.mediaType ?? '').toLowerCase();
 
+    // Allowlist explícita: rejeita reaction, sticker, buttons, protocol, call, etc.
+    // EphemeralMessage entra aqui; como é wrapper, o conteúdo real fica exposto em
+    // msg.type/msg.text/msg.mediaType como se fosse normal.
+    const messageTypeAllowed =
+      rawMessageType !== '' && UazapiClient.ACCEPTED_MESSAGE_TYPES.has(rawMessageType);
+    const contentTypeAllowed =
+      rawType !== '' && UazapiClient.ACCEPTED_CONTENT_TYPES.has(rawType);
+
+    if (!messageTypeAllowed && !contentTypeAllowed) {
+      return null;
+    }
+
+    // EphemeralMessage: o tipo real vem em msg.type ou msg.mediaType.
+    // Se mesmo assim nao identificarmos sub-tipo, tratamos como texto
+    // (a maioria das efêmeras são de texto).
     const isText =
       rawType === 'text' ||
       rawMessageType === 'conversation' ||
-      rawMessageType === 'extendedtextmessage';
+      rawMessageType === 'extendedtextmessage' ||
+      (rawMessageType === 'ephemeralmessage' && !rawType && !mediaTypeLower);
     const isAudio =
       rawType === 'audio' ||
       rawType === 'ptt' ||
-      rawMessageType.includes('audio') ||
+      rawMessageType === 'audiomessage' ||
       mediaTypeLower === 'audio';
     const isImage =
-      rawType === 'image' || rawMessageType.includes('image') || mediaTypeLower === 'image';
+      rawType === 'image' ||
+      rawMessageType === 'imagemessage' ||
+      mediaTypeLower === 'image';
     const isVideo =
-      rawType === 'video' || rawMessageType.includes('video') || mediaTypeLower === 'video';
+      rawType === 'video' ||
+      rawMessageType === 'videomessage' ||
+      mediaTypeLower === 'video';
     const isDocument =
       rawType === 'document' ||
-      rawMessageType.includes('document') ||
+      rawMessageType === 'documentmessage' ||
       mediaTypeLower === 'document';
 
     let text = msg.text ?? (isText ? msg.content : '') ?? '';
