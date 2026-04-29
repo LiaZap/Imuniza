@@ -307,14 +307,16 @@ function EmptyQueue() {
 }
 
 export default async function QueuePage() {
-  const [awaiting, assigned, overview] = await Promise.all([
+  const [awaiting, assigned, active, overview] = await Promise.all([
     apiGet<Conversation[]>('/conversations?status=awaiting_handoff'),
     apiGet<Conversation[]>('/conversations?status=assigned'),
+    apiGet<Conversation[]>('/conversations?status=active&limit=20'),
     apiGet<MetricsOverview>('/metrics/overview'),
   ]);
 
   const awaitingList = awaiting ?? [];
   const assignedList = assigned ?? [];
+  const activeList = active ?? [];
   const stats = overview ?? {
     active: 0,
     awaitingHandoff: 0,
@@ -414,7 +416,7 @@ export default async function QueuePage() {
         )}
       </section>
 
-      <section>
+      <section className="mb-10">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-slate-500">
             <Users className="h-4 w-4" />
@@ -431,6 +433,30 @@ export default async function QueuePage() {
         ) : (
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
             {assignedList.map((c) => (
+              <AssignedCard key={c.id} c={c} />
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="flex items-center gap-2 text-sm font-semibold uppercase tracking-wider text-slate-500">
+            <Bot className="h-4 w-4" />
+            IA atendendo agora
+            <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-semibold text-slate-600">
+              {activeList.length}
+            </span>
+          </h2>
+          <span className="text-xs text-slate-400">Atualiza em tempo real</span>
+        </div>
+        {activeList.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-500">
+            Nenhuma conversa em andamento com a IA.
+          </div>
+        ) : (
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+            {activeList.map((c) => (
               <AssignedCard key={c.id} c={c} />
             ))}
           </div>
