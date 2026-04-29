@@ -23,8 +23,8 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
         logoutSlot={<LogoutButton />}
       />
 
-      {/* Desktop sidebar */}
-      <aside className="hidden w-64 shrink-0 flex-col border-r border-slate-200 bg-white lg:flex">
+      {/* Desktop sidebar — fixa em altura de viewport, com seu proprio scroll interno */}
+      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col border-r border-slate-200 bg-white lg:flex">
         <div className="relative overflow-hidden bg-brand-gradient px-4 py-3">
           <div className="pointer-events-none absolute inset-0 bg-brand-radial" />
           <div className="relative flex h-20 items-center overflow-hidden">
@@ -36,7 +36,7 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
             />
           </div>
         </div>
-        <nav className="flex-1 space-y-1 px-3 py-5">
+        <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-5">
           {visibleNav.map((item) => (
             <Link
               key={item.href}
