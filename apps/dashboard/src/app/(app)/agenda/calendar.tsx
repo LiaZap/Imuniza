@@ -4,10 +4,10 @@ import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import {
   CalendarCheck,
+  CalendarX,
   CheckCircle2,
   ChevronLeft,
   ChevronRight,
-  CircleDollarSign,
   Clock,
   Users,
   X,
@@ -88,10 +88,6 @@ function sameDay(a: Date, b: Date): boolean {
   );
 }
 
-function formatBRL(n: number): string {
-  return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(n);
-}
-
 function vaccineNamesFromSlugs(slugs: string[], vaccines: Vaccine[]): string {
   const names = slugs
     .map((s) => vaccines.find((v) => v.slug === s)?.name ?? s)
@@ -150,16 +146,12 @@ export function CalendarView({
     return d >= monthStart && d <= monthEnd;
   });
   const totalScheduled = monthAppointments.length;
-  const totalPaid = monthAppointments.filter((a) => a.status === 'paid').length;
-  const expectedRevenue = monthAppointments.reduce(
-    (sum, a) => sum + (a.expectedValue ?? 0),
-    0,
-  );
-  const realizedRevenue = monthAppointments.reduce(
-    (sum, a) => sum + (a.paidValue ?? 0),
-    0,
-  );
+  const totalAttended = monthAppointments.filter(
+    (a) => a.status === 'attended' || a.status === 'paid',
+  ).length;
   const noShows = monthAppointments.filter((a) => a.status === 'no_show').length;
+  const cancelled = monthAppointments.filter((a) => a.status === 'cancelled').length;
+  const upcoming = monthAppointments.filter((a) => a.status === 'scheduled').length;
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -224,9 +216,25 @@ export function CalendarView({
       {/* KPIs */}
       <div className="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">
         <KpiCard icon={CalendarCheck} label="Agendamentos no mês" value={totalScheduled.toString()} tone="brand" />
-        <KpiCard icon={CheckCircle2} label="Comparecimentos" value={`${totalPaid}/${totalScheduled || 0}`} tone="accent" />
-        <KpiCard icon={CircleDollarSign} label="Receita esperada" value={formatBRL(expectedRevenue)} tone="slate" />
-        <KpiCard icon={CircleDollarSign} label="Receita realizada" value={formatBRL(realizedRevenue)} tone="slate" hint={noShows > 0 ? `${noShows} no-show(s)` : undefined} />
+        <KpiCard icon={Clock} label="Próximos / a confirmar" value={upcoming.toString()} tone="accent" />
+        <KpiCard
+          icon={CheckCircle2}
+          label="Comparecimentos"
+          value={totalScheduled > 0 ? `${totalAttended}/${totalScheduled}` : '0'}
+          tone="slate"
+          hint={
+            totalScheduled > 0
+              ? `${Math.round((totalAttended / totalScheduled) * 100)}% de presença`
+              : undefined
+          }
+        />
+        <KpiCard
+          icon={CalendarX}
+          label="No-show / cancelados"
+          value={`${noShows + cancelled}`}
+          tone="slate"
+          hint={noShows + cancelled > 0 ? `${noShows} faltaram · ${cancelled} cancelados` : 'tudo certo'}
+        />
       </div>
 
       {/* Grid de dias da semana */}
@@ -374,18 +382,6 @@ export function CalendarView({
                         <div className="mt-1 text-xs text-slate-600">
                           {vaccineNamesFromSlugs(a.vaccineSlugs, vaccines)}
                         </div>
-                        {(a.expectedValue || a.paidValue) && (
-                          <div className="mt-1 flex items-center gap-3 text-[11px] text-slate-500">
-                            {a.expectedValue != null && (
-                              <span>Previsto: {formatBRL(Number(a.expectedValue))}</span>
-                            )}
-                            {a.paidValue != null && (
-                              <span className="font-semibold text-emerald-700">
-                                Pago: {formatBRL(Number(a.paidValue))}
-                              </span>
-                            )}
-                          </div>
-                        )}
                         {a.notes && (
                           <p className="mt-1 line-clamp-2 text-xs italic text-slate-500">
                             “{a.notes}”

@@ -1,6 +1,10 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { prisma, AppointmentStatus } from '@imuniza/db';
+import {
+  scheduleAppointmentReminders,
+  cancelAppointmentReminders,
+} from '../services/appointmentReminders.js';
 
 const paramsSchema = z.object({ id: z.string().uuid() });
 
@@ -69,6 +73,15 @@ export async function appointmentsRoutes(app: FastifyInstance): Promise<void> {
         createdByUserId: req.session!.sub,
       },
     });
+
+    // Agenda lembretes baseados no config do tenant
+    try {
+      const count = await scheduleAppointmentReminders(created.id);
+      req.log.info({ appointmentId: created.id, reminders: count }, 'reminders scheduled');
+    } catch (err) {
+      req.log.error({ err, appointmentId: created.id }, 'failed to schedule reminders');
+    }
+
     return reply.code(201).send(serialize(created));
   });
 
@@ -91,6 +104,16 @@ export async function appointmentsRoutes(app: FastifyInstance): Promise<void> {
         ...(body.notes !== undefined ? { notes: body.notes } : {}),
       },
     });
+
+    // Re-agenda lembretes (ou cancela se status virou cancelled/no_show)
+    if (body.status || body.scheduledFor || body.vaccineSlugs) {
+      try {
+        await scheduleAppointmentReminders(updated.id);
+      } catch (err) {
+        req.log.error({ err, appointmentId: updated.id }, 'failed to reschedule reminders');
+      }
+    }
+
     return serialize(updated);
   });
 
@@ -99,6 +122,7 @@ export async function appointmentsRoutes(app: FastifyInstance): Promise<void> {
     const { id } = paramsSchema.parse(req.params);
     const existing = await prisma.appointment.findFirst({ where: { id, tenantId } });
     if (!existing) return reply.code(404).send({ error: 'not_found' });
+    await cancelAppointmentReminders(id).catch(() => undefined);
     await prisma.appointment.delete({ where: { id } });
     return reply.code(204).send();
   });
