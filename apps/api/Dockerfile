@@ -43,4 +43,8 @@ USER app
 
 EXPOSE 3001
 ENTRYPOINT ["/sbin/tini", "--"]
-CMD ["pnpm", "--filter", "@imuniza/api", "run", "start:prod"]
+# Aplica migrations pendentes antes de subir o servidor.
+# Tolera falha do migrate (loga e segue) para nao crashar o container
+# se a migration ja estiver aplicada e o estado do _prisma_migrations
+# divergir entre deploys.
+CMD ["sh", "-c", "cd /app/packages/db && pnpm exec prisma migrate deploy || echo '[boot] migrate deploy fallback' ; cd /app && pnpm --filter @imuniza/api run start:prod"]
