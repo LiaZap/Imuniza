@@ -1,9 +1,11 @@
 import { prisma } from '@imuniza/db';
 import { searchKB } from '@imuniza/kb';
 import { PatientProfileSchema } from '@imuniza/shared';
+import type { FastifyBaseLogger } from 'fastify';
 import { addMessage } from './conversation.js';
 import { ai } from './openai.js';
 import { uazapi } from './uazapi.js';
+import { sendHumanized } from './humanizedSend.js';
 import { eventBus } from '../events/bus.js';
 
 export interface FunctionContext {
@@ -29,20 +31,23 @@ export const functionHandlers: Record<
     if (!text) return { name: 'send_reply', output: JSON.stringify({ error: 'empty text' }) };
 
     try {
-      const sent = await uazapi.sendText({ number: ctx.patientPhone, text });
-      await addMessage({
+      const result = await sendHumanized({
         conversationId: ctx.conversationId,
-        role: 'assistant',
-        content: text,
-        metadata: { uazapiMessageId: sent.id },
+        patientPhone: ctx.patientPhone,
+        text,
+        logger: ctx.logger as unknown as FastifyBaseLogger,
       });
       return {
         name: 'send_reply',
-        output: JSON.stringify({ ok: true, messageId: sent.id }),
+        output: JSON.stringify({
+          ok: true,
+          chunks: result.chunkCount,
+          messageIds: result.uazapiMessageIds,
+        }),
         sideEffects: { sentToPatient: true },
       };
     } catch (err) {
-      ctx.logger.error({ err }, 'send_reply uazapi failed');
+      ctx.logger.error({ err }, 'send_reply humanized failed');
       return {
         name: 'send_reply',
         output: JSON.stringify({ ok: false, error: (err as Error).message }),
