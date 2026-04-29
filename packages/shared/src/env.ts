@@ -16,7 +16,7 @@ const envSchema = z.object({
   UAZAPI_WEBHOOK_SECRET: z.string().min(8),
 
   /** Delay do debounce das mensagens do paciente antes da IA responder (ms). */
-  MESSAGE_BUFFER_MS: z.coerce.number().int().min(0).max(30_000).default(4000),
+  MESSAGE_BUFFER_MS: z.coerce.number().int().min(0).max(30_000).default(2500),
 
   /** Quanto tempo a IA fica pausada depois que um humano respondeu pelo numero real. */
   AI_HUMAN_OVERRIDE_PAUSE_MS: z.coerce

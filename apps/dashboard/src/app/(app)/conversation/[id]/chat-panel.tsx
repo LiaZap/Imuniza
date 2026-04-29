@@ -97,7 +97,16 @@ export function ChatPanel({
     es.addEventListener('message.created', handler);
     es.addEventListener('conversation.assigned', handler);
     es.addEventListener('conversation.closed', handler);
-    return () => es.close();
+    es.addEventListener('conversation.ai_paused', handler);
+
+    // Polling de seguranca: alguns proxies bufferizam SSE em prod.
+    // Garante que a UI nunca fica "presa" mais que 5s sem atualizar.
+    const poll = setInterval(() => router.refresh(), 5000);
+
+    return () => {
+      es.close();
+      clearInterval(poll);
+    };
   }, [conversation.id, router]);
 
   async function handleAssign() {
