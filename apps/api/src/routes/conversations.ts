@@ -150,24 +150,48 @@ export async function conversationsRoutes(app: FastifyInstance): Promise<void> {
     const { id } = paramsSchema.parse(req.params);
     const conversation = await prisma.conversation.findUnique({ where: { id } });
     if (!conversation) return reply.code(404).send({ error: 'not_found' });
-    if (!conversation.aiPausedUntil) {
-      return reply.send({ id, aiPausedUntil: null });
+
+    const wasPaused = !!conversation.aiPausedUntil;
+    const wasAssigned = conversation.status === 'assigned' || conversation.status === 'awaiting_handoff';
+
+    if (!wasPaused && !wasAssigned) {
+      return reply.send({ id, aiPausedUntil: null, status: conversation.status });
     }
 
     const updated = await prisma.conversation.update({
       where: { id },
-      data: { aiPausedUntil: null },
-      select: { id: true, aiPausedUntil: true, tenantId: true },
+      data: {
+        aiPausedUntil: null,
+        // Se estiver atribuida ou em handoff, volta a IA pro fluxo
+        ...(wasAssigned ? { status: 'active', assignedToUserId: null } : {}),
+      },
+      select: { id: true, aiPausedUntil: true, tenantId: true, status: true },
+    });
+
+    // Marca handoffs como resolvidos
+    if (wasAssigned) {
+      await prisma.handoff.updateMany({
+        where: { conversationId: id, status: { in: ['pending', 'assigned'] } },
+        data: { status: 'resolved' },
+      });
+    }
+
+    // Mensagem de sistema para registrar a transicao no historico
+    await addMessage({
+      conversationId: id,
+      role: 'system',
+      content: 'Conversa devolvida para a IA pelo atendente.',
+      metadata: { event: 'returned_to_ai' },
     });
 
     eventBus.emitDomain({
       type: 'conversation.ai_paused',
       tenantId: updated.tenantId,
       conversationId: updated.id,
-      pausedUntil: '', // string vazia indica resumo
+      pausedUntil: '',
     });
 
-    return { id: updated.id, aiPausedUntil: updated.aiPausedUntil };
+    return { id: updated.id, aiPausedUntil: updated.aiPausedUntil, status: updated.status };
   });
 
   app.post('/:id/close', async (req, reply) => {

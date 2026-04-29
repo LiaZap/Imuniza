@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
-import { Bot, CalendarCheck, CheckCircle2, Send, User, UserCheck } from 'lucide-react';
+import { Bot, CalendarCheck, CheckCircle2, RotateCcw, Send, User, UserCheck } from 'lucide-react';
 import { api } from '@/lib/api-client';
 import type { Conversation, Message, Vaccine } from '@/lib/types';
 import { AppointmentModal } from './appointment-modal';
@@ -119,6 +119,16 @@ export function ChatPanel({
     }
   }
 
+  async function handleReturnToAi() {
+    if (!confirm('Devolver esta conversa para a IA? Ela vai voltar a responder.')) return;
+    try {
+      await api(`/conversations/${conversation.id}/resume-ai`, { method: 'POST' });
+      router.refresh();
+    } catch {
+      setError('Falha ao devolver para a IA.');
+    }
+  }
+
   async function handleSend(e: FormEvent) {
     e.preventDefault();
     if (!text.trim()) return;
@@ -140,6 +150,7 @@ export function ChatPanel({
 
   const closed = conversation.status === 'closed';
   const awaitingHandoff = conversation.status === 'awaiting_handoff';
+  const humanInControl = conversation.status === 'assigned' || conversation.status === 'awaiting_handoff';
 
   const groups: Array<{ label: string; messages: Message[] }> = [];
   for (const m of visible) {
@@ -168,6 +179,16 @@ export function ChatPanel({
           >
             <CalendarCheck className="h-4 w-4" />
             Registrar agendamento
+          </button>
+        )}
+        {humanInControl && !closed && (
+          <button
+            onClick={handleReturnToAi}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-brand/30 bg-brand-soft px-4 py-2 text-sm font-semibold text-brand-deep hover:bg-brand/10"
+            title="A IA volta a responder esta conversa automaticamente"
+          >
+            <RotateCcw className="h-4 w-4" />
+            Devolver para IA
           </button>
         )}
         {!closed && (
