@@ -59,7 +59,8 @@ export const agentTurnQueue = new Queue<AgentTurnJob>('agent_turn', {
 });
 
 export function agentTurnJobId(conversationId: string): string {
-  return `agent-turn:${conversationId}`;
+  // BullMQ nao aceita ':' em custom job IDs (Custom Id cannot contain :).
+  return `agent-turn-${conversationId}`;
 }
 
 export function registerAgentTurnWorker(
