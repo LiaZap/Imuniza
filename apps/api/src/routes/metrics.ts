@@ -61,25 +61,54 @@ export async function metricsRoutes(app: FastifyInstance): Promise<void> {
     return rows.map((r) => ({ hour: Number(r.hour), messages: Number(r.messages) }));
   });
 
-  app.get('/breakdown', async () => {
-    const startOfWeek = new Date();
-    startOfWeek.setDate(startOfWeek.getDate() - 6);
-    startOfWeek.setHours(0, 0, 0, 0);
+  app.get('/breakdown', async (req) => {
+    const q = req.query as { from?: string; to?: string; days?: string };
+
+    let from: Date;
+    let to: Date;
+    if (q.from && q.to) {
+      from = new Date(q.from);
+      to = new Date(q.to);
+    } else {
+      const days = Number(q.days ?? 7);
+      const safeDays = Number.isFinite(days) ? Math.max(1, Math.min(days, 365)) : 7;
+      to = new Date();
+      to.setHours(23, 59, 59, 999);
+      from = new Date(to);
+      from.setDate(from.getDate() - (safeDays - 1));
+      from.setHours(0, 0, 0, 0);
+    }
 
     const rows = await prisma.$queryRawUnsafe<Array<{ role: string; c: bigint }>>(
       `SELECT role::text AS role, COUNT(*)::bigint AS c
        FROM messages
-       WHERE "createdAt" >= $1
+       WHERE "createdAt" >= $1 AND "createdAt" <= $2
        GROUP BY role`,
-      startOfWeek,
+      from,
+      to,
     );
 
     const byRole: Record<string, number> = {};
     for (const r of rows) byRole[r.role] = Number(r.c);
+
+    // Escalonamento = handoffs no periodo (vezes que a IA pediu humano)
+    const escalations = await prisma.handoff.count({
+      where: { createdAt: { gte: from, lte: to } },
+    });
+    const conversationsPeriod = await prisma.conversation.count({
+      where: { createdAt: { gte: from, lte: to } },
+    });
+
     return {
+      from: from.toISOString(),
+      to: to.toISOString(),
       user: byRole.user ?? 0,
       assistant: byRole.assistant ?? 0,
       human: byRole.human ?? 0,
+      escalations,
+      conversations: conversationsPeriod,
+      escalationRate:
+        conversationsPeriod > 0 ? Math.round((escalations / conversationsPeriod) * 100) : 0,
     };
   });
 
@@ -148,20 +177,21 @@ export async function metricsRoutes(app: FastifyInstance): Promise<void> {
     ]);
 
     const steps = [
-      { key: 'contacts', label: 'Contatos', value: contacts },
-      { key: 'handoffs', label: 'Leads qualificados', value: handoffs },
+      { key: 'contacts', label: 'Pacientes que falaram com a IA', value: contacts },
+      { key: 'handoffs', label: 'Encaminhados para a equipe', value: handoffs },
       { key: 'appointments', label: 'Agendados', value: appointments },
-      { key: 'attended', label: 'Atendidos', value: attended },
-      { key: 'paid', label: 'Pagos', value: paid },
+      { key: 'attended', label: 'Atendidos / aplicaram', value: attended },
     ];
 
+    // Revenue ainda fica no payload pra eventual uso interno (admin),
+    // mas a UI principal nao exibe mais.
     const revenueTotal = revenue._sum.paidValue ? Number(revenue._sum.paidValue) : 0;
 
     return {
       days,
       steps,
       revenue: revenueTotal,
-      conversion: contacts > 0 ? Math.round((paid / contacts) * 100) : 0,
+      conversion: contacts > 0 ? Math.round((attended / contacts) * 100) : 0,
     };
   });
 }

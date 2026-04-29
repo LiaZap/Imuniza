@@ -22,6 +22,7 @@ import { WeeklyChart } from './weekly-chart';
 import { HourlyChart } from './hourly-chart';
 import { MetricsRealtime } from './realtime';
 import { FunnelSection } from './funnel';
+import { BreakdownCard } from './breakdown-card';
 
 function Kpi({
   icon: Icon,
@@ -79,93 +80,18 @@ function Kpi({
   );
 }
 
-function BreakdownBar({ breakdown }: { breakdown: MessagesBreakdown }) {
-  const total = breakdown.user + breakdown.assistant + breakdown.human;
-  if (total === 0) {
-    return (
-      <div className="flex h-48 items-center justify-center rounded-xl border border-dashed border-slate-200 bg-white/50 text-sm text-slate-400">
-        Sem mensagens nos últimos 7 dias.
-      </div>
-    );
-  }
-  const pct = {
-    user: (breakdown.user / total) * 100,
-    assistant: (breakdown.assistant / total) * 100,
-    human: (breakdown.human / total) * 100,
-  };
-  const aiRate = breakdown.user > 0 ? Math.round((breakdown.assistant / breakdown.user) * 100) : 0;
-  const humanRate =
-    breakdown.user > 0 ? Math.round((breakdown.human / breakdown.user) * 100) : 0;
-
-  return (
-    <div className="space-y-5">
-      <div>
-        <div className="flex items-center justify-between text-sm">
-          <span className="flex items-center gap-2 font-medium text-slate-700">
-            <Bot className="h-4 w-4 text-brand" />
-            Respondido pela IA
-          </span>
-          <span className="font-semibold text-slate-900">{breakdown.assistant}</span>
-        </div>
-        <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
-          <div className="h-full bg-brand" style={{ width: `${pct.assistant}%` }} />
-        </div>
-      </div>
-      <div>
-        <div className="flex items-center justify-between text-sm">
-          <span className="flex items-center gap-2 font-medium text-slate-700">
-            <Users className="h-4 w-4 text-accent-foreground" />
-            Respondido por humano
-          </span>
-          <span className="font-semibold text-slate-900">{breakdown.human}</span>
-        </div>
-        <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
-          <div className="h-full bg-accent" style={{ width: `${pct.human}%` }} />
-        </div>
-      </div>
-      <div>
-        <div className="flex items-center justify-between text-sm">
-          <span className="flex items-center gap-2 font-medium text-slate-700">
-            <MessageSquare className="h-4 w-4 text-slate-500" />
-            Mensagens de pacientes
-          </span>
-          <span className="font-semibold text-slate-900">{breakdown.user}</span>
-        </div>
-        <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100">
-          <div className="h-full bg-slate-400" style={{ width: `${pct.user}%` }} />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3 border-t border-slate-100 pt-4 text-xs">
-        <div className="rounded-xl bg-brand-soft px-3 py-2.5">
-          <div className="text-[11px] font-semibold uppercase tracking-wider text-brand-deep/70">
-            IA autoresolve
-          </div>
-          <div className="mt-1 font-display text-2xl font-bold text-brand-deep">{aiRate}%</div>
-          <div className="text-[11px] text-brand-deep/70">respostas automáticas / paciente</div>
-        </div>
-        <div className="rounded-xl bg-accent-soft px-3 py-2.5">
-          <div className="text-[11px] font-semibold uppercase tracking-wider text-accent-foreground/70">
-            Escalonamento
-          </div>
-          <div className="mt-1 font-display text-2xl font-bold text-accent-foreground">
-            {humanRate}%
-          </div>
-          <div className="text-[11px] text-accent-foreground/70">
-            interações que vão para equipe
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 export default async function MetricsPage() {
   const [overview, weekly, hourly, breakdown, funnel] = await Promise.all([
     apiGet<MetricsOverview>('/metrics/overview'),
     apiGet<WeeklyPoint[]>('/metrics/weekly'),
     apiGet<HourlyPoint[]>('/metrics/hourly'),
-    apiGet<MessagesBreakdown>('/metrics/breakdown'),
+    apiGet<MessagesBreakdown & {
+      escalations: number;
+      conversations: number;
+      escalationRate: number;
+      from: string;
+      to: string;
+    }>('/metrics/breakdown?days=7'),
     apiGet<FunnelData>('/metrics/funnel?days=30'),
   ]);
 
@@ -181,7 +107,16 @@ export default async function MetricsPage() {
   };
   const weeklyData = weekly ?? [];
   const hourlyData = hourly ?? [];
-  const breakdownData = breakdown ?? { user: 0, assistant: 0, human: 0 };
+  const breakdownData = breakdown ?? {
+    user: 0,
+    assistant: 0,
+    human: 0,
+    escalations: 0,
+    conversations: 0,
+    escalationRate: 0,
+    from: '',
+    to: '',
+  };
 
   const weeklyTotalMsgs = weeklyData.reduce((a, b) => a + b.messages, 0);
   const weeklyAvg = weeklyData.length > 0 ? Math.round(weeklyTotalMsgs / weeklyData.length) : 0;
@@ -218,7 +153,7 @@ export default async function MetricsPage() {
         </a>
       </header>
 
-      <section className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
+      <section className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-5">
         <Kpi
           icon={Activity}
           label="Conversas ativas"
@@ -239,6 +174,13 @@ export default async function MetricsPage() {
           value={stats.patientsToday ?? 0}
           hint="primeiros contatos hoje"
           tone="violet"
+        />
+        <Kpi
+          icon={Users}
+          label="Escalonamento (7d)"
+          value={`${breakdownData.escalationRate}%`}
+          hint={`${breakdownData.escalations} de ${breakdownData.conversations} conversas`}
+          tone="slate"
         />
         <Kpi
           icon={CheckCircle2}
@@ -290,14 +232,7 @@ export default async function MetricsPage() {
         </div>
 
         <div>
-          <div className="flex h-full flex-col rounded-2xl border border-slate-200 bg-white p-6 shadow-card">
-            <h2 className="flex items-center gap-2 font-display text-lg font-bold text-slate-900">
-              <Bot className="h-4 w-4 text-brand" />
-              IA × Humano
-            </h2>
-            <p className="mb-5 text-xs text-slate-500">Distribuição das mensagens nos últimos 7 dias.</p>
-            <BreakdownBar breakdown={breakdownData} />
-          </div>
+          <BreakdownCard initial={breakdown} />
         </div>
       </section>
 

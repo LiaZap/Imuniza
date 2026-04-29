@@ -1,10 +1,6 @@
 import { TrendingUp, ArrowDown } from 'lucide-react';
 import type { FunnelData } from '@/lib/types';
 
-function formatBRL(n: number): string {
-  return n.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-}
-
 export function FunnelSection({ data }: { data: FunnelData }) {
   if (!data) return null;
   const max = Math.max(1, ...data.steps.map((s) => s.value));
@@ -18,15 +14,15 @@ export function FunnelSection({ data }: { data: FunnelData }) {
             Funil de conversão
           </h2>
           <p className="text-xs text-slate-500">
-            Últimos {data.days} dias — do primeiro contato até o pagamento.
+            Últimos {data.days} dias — do primeiro contato até o atendimento.
           </p>
         </div>
         <div className="text-right">
-          <div className="text-[11px] uppercase tracking-wider text-slate-500">Receita</div>
-          <div className="font-display text-2xl font-extrabold text-brand-deep">
-            {formatBRL(data.revenue)}
+          <div className="text-[11px] uppercase tracking-wider text-slate-500">Conversão</div>
+          <div className="font-display text-3xl font-extrabold text-brand-deep">
+            {data.conversion}%
           </div>
-          <div className="text-[11px] text-slate-500">Conversão: {data.conversion}%</div>
+          <div className="text-[11px] text-slate-500">contato → agendamento concretizado</div>
         </div>
       </div>
 
@@ -86,9 +82,7 @@ export function FunnelSection({ data }: { data: FunnelData }) {
       </div>
 
       <p className="mt-5 text-[11px] text-slate-400">
-        Agendamentos e cobranças são registrados pelo atendente a partir do chat.
-        <br />
-        Atendidos + Pagos abastecem a receita mensal.
+        Agendamentos são registrados pelo atendente a partir do chat. Comparecimentos atualizam a etapa final do funil.
       </p>
     </section>
   );

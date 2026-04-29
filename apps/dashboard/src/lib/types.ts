@@ -105,6 +105,11 @@ export interface TenantSettings {
     businessHours?: { start: string; end: string; timezone: string };
     silentHours?: { enabled: boolean; start: string; end: string; offlineMessage?: string };
     quickTemplates?: Array<{ label: string; text: string }>;
+    reminders?: {
+      enabled: boolean;
+      leadTimesMinutes: number[];
+      messageTemplate?: string;
+    };
   };
 }
 

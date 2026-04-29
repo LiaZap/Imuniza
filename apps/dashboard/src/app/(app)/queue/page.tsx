@@ -102,12 +102,13 @@ function KpiCard({
   label: string;
   value: number;
   hint?: string;
-  tone?: 'brand' | 'accent' | 'slate';
+  tone?: 'brand' | 'accent' | 'slate' | 'white';
 }) {
   const tones = {
     brand: 'from-brand/90 via-brand to-brand-deep text-white',
     accent: 'from-accent to-accent/80 text-accent-foreground',
     slate: 'from-slate-50 to-slate-100 text-slate-800 ring-slate-200/60',
+    white: 'from-white to-slate-50 text-slate-800 ring-slate-200/80',
   } as const;
   const isLight = tone === 'brand' || tone === 'accent';
   return (
@@ -360,10 +361,10 @@ export default async function QueuePage() {
 
       <section className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <KpiCard
-          icon={Inbox}
-          label="Aguardando"
-          value={awaitingList.length}
-          hint={avgWait > 0 ? `espera média ${avgWait}min` : 'nenhum na fila'}
+          icon={Bot}
+          label="IA conversando"
+          value={stats.active}
+          hint="sessões ativas agora"
           tone="brand"
         />
         <KpiCard
@@ -371,13 +372,13 @@ export default async function QueuePage() {
           label="Em atendimento"
           value={assignedList.length}
           hint="humano respondendo"
-          tone="accent"
+          tone="white"
         />
         <KpiCard
-          icon={Bot}
-          label="IA conversando"
-          value={stats.active}
-          hint="sessões ativas agora"
+          icon={Inbox}
+          label="Aguardando"
+          value={awaitingList.length}
+          hint={avgWait > 0 ? `espera média ${avgWait}min` : 'nenhum na fila'}
           tone="slate"
         />
         <KpiCard

@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent, type ReactNode } from 'react';
 import {
+  BellRing,
   Building2,
   Check,
   Clock,
@@ -30,6 +31,16 @@ export function SettingsForm({ initial }: { initial: TenantSettings }) {
   const [silentStart, setSilentStart] = useState(initial.config.silentHours?.start ?? '22:00');
   const [silentEnd, setSilentEnd] = useState(initial.config.silentHours?.end ?? '07:00');
   const [templates, setTemplates] = useState(initial.config.quickTemplates ?? []);
+  const [remindersEnabled, setRemindersEnabled] = useState(
+    initial.config.reminders?.enabled ?? true,
+  );
+  const [reminderLeadTimes, setReminderLeadTimes] = useState<number[]>(
+    initial.config.reminders?.leadTimesMinutes ?? [24 * 60, 60],
+  );
+  const [reminderTemplate, setReminderTemplate] = useState(
+    initial.config.reminders?.messageTemplate ??
+      'Oi {NOME}! 💙 Lembrete do seu agendamento {DATA} às {HORA} para {VACINA}. Qualquer coisa me chama por aqui.',
+  );
 
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<{ kind: 'ok' | 'error'; msg: string } | null>(null);
@@ -48,6 +59,13 @@ export function SettingsForm({ initial }: { initial: TenantSettings }) {
           businessHours: { start: hoursStart, end: hoursEnd, timezone },
           silentHours: { enabled: silentEnabled, start: silentStart, end: silentEnd },
           quickTemplates: templates.filter((t) => t.label.trim() && t.text.trim()),
+          reminders: {
+            enabled: remindersEnabled,
+            leadTimesMinutes: reminderLeadTimes
+              .filter((n) => Number.isFinite(n) && n >= 5)
+              .sort((a, b) => b - a),
+            messageTemplate: reminderTemplate,
+          },
         }),
       });
       setStatus({ kind: 'ok', msg: 'Configurações salvas.' });
@@ -176,6 +194,91 @@ export function SettingsForm({ initial }: { initial: TenantSettings }) {
               />
             </Field>
           </div>
+        )}
+      </Section>
+
+      <Section
+        icon={BellRing}
+        title="Lembretes automáticos de agendamento"
+        description="A IA envia lembretes via WhatsApp baseado nos horários da Agenda. Configure quanto tempo antes."
+      >
+        <label className="mb-3 flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={remindersEnabled}
+            onChange={(e) => setRemindersEnabled(e.target.checked)}
+            className="h-4 w-4 rounded border-slate-300 text-brand focus:ring-brand"
+          />
+          <span className="text-slate-700">Disparar lembretes automaticamente</span>
+        </label>
+
+        {remindersEnabled && (
+          <>
+            <Field label="Quando enviar (antes do agendamento)">
+              <div className="space-y-2">
+                {reminderLeadTimes.map((mins, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <select
+                      value={mins}
+                      onChange={(e) => {
+                        const next = [...reminderLeadTimes];
+                        next[i] = Number(e.target.value);
+                        setReminderLeadTimes(next);
+                      }}
+                      className="input w-48"
+                    >
+                      <option value={15}>15 minutos antes</option>
+                      <option value={30}>30 minutos antes</option>
+                      <option value={60}>1 hora antes</option>
+                      <option value={120}>2 horas antes</option>
+                      <option value={180}>3 horas antes</option>
+                      <option value={360}>6 horas antes</option>
+                      <option value={720}>12 horas antes</option>
+                      <option value={1440}>24 horas antes</option>
+                      <option value={2880}>2 dias antes</option>
+                      <option value={4320}>3 dias antes</option>
+                      <option value={10080}>1 semana antes</option>
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => setReminderLeadTimes(reminderLeadTimes.filter((_, j) => j !== i))}
+                      className="flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setReminderLeadTimes([...reminderLeadTimes, 1440])}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-slate-300 px-3 py-1.5 text-xs text-slate-600 hover:border-brand/30 hover:text-brand"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Adicionar outro lembrete
+                </button>
+              </div>
+              <p className="mt-2 text-[11px] text-slate-500">
+                Você pode configurar múltiplos lembretes — ex.: 24h e 1h antes.
+              </p>
+            </Field>
+
+            <Field label="Mensagem do lembrete">
+              <textarea
+                value={reminderTemplate}
+                onChange={(e) => setReminderTemplate(e.target.value)}
+                rows={3}
+                className="input"
+                placeholder="Oi {NOME}! Lembrete do seu agendamento {DATA} às {HORA} para {VACINA}."
+              />
+              <p className="mt-1 text-[11px] text-slate-500">
+                Placeholders disponíveis:{' '}
+                <code className="rounded bg-slate-100 px-1">{'{NOME}'}</code>{' '}
+                <code className="rounded bg-slate-100 px-1">{'{DATA}'}</code>{' '}
+                <code className="rounded bg-slate-100 px-1">{'{HORA}'}</code>{' '}
+                <code className="rounded bg-slate-100 px-1">{'{VACINA}'}</code>
+              </p>
+            </Field>
+          </>
         )}
       </Section>
 

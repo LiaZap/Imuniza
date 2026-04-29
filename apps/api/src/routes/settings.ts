@@ -22,6 +22,15 @@ const configBody = z.object({
     .optional(),
   quickTemplates: z.array(z.object({ label: z.string(), text: z.string() })).optional(),
   phone: z.string().optional(),
+  reminders: z
+    .object({
+      /** Quanto tempo antes do agendamento disparar lembrete (em minutos). Ex.: 1440 = 24h */
+      leadTimesMinutes: z.array(z.number().int().min(5).max(60 * 24 * 30)),
+      /** Template da mensagem do lembrete. Aceita placeholders {NOME} {DATA} {HORA} {VACINA}. */
+      messageTemplate: z.string().min(1).optional(),
+      enabled: z.boolean().optional(),
+    })
+    .optional(),
 });
 
 export async function settingsRoutes(app: FastifyInstance): Promise<void> {
@@ -52,6 +61,7 @@ export async function settingsRoutes(app: FastifyInstance): Promise<void> {
     if (body.businessHours !== undefined) newConfig.businessHours = body.businessHours;
     if (body.silentHours !== undefined) newConfig.silentHours = body.silentHours;
     if (body.quickTemplates !== undefined) newConfig.quickTemplates = body.quickTemplates;
+    if (body.reminders !== undefined) newConfig.reminders = body.reminders;
 
     const updated = await prisma.tenant.update({
       where: { id: tenantId },
