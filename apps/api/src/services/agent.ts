@@ -4,6 +4,7 @@ import type OpenAI from 'openai';
 import { addMessage, loadHistory } from './conversation.js';
 import { functionHandlers, type FunctionContext } from './functions.js';
 import { ai } from './openai.js';
+import { uazapi } from './uazapi.js';
 import { getTenantConfig } from './tenant.js';
 import { prisma } from '@imuniza/db';
 
@@ -131,13 +132,30 @@ export async function runAgent(input: RunAgentInput): Promise<void> {
 
     const finalText = assistantMsg.content?.trim();
     if (finalText) {
+      // Fallback: o modelo respondeu com texto direto, sem chamar send_reply.
+      // Acontece especialmente apos um turno com function calling.
+      // Como o paciente PRECISA receber a mensagem, enviamos via Uazapi
+      // aqui mesmo e marcamos no metadata.
+      let uazapiId: string | undefined;
+      try {
+        const sent = await uazapi.sendText({ number: input.patientPhone, text: finalText });
+        uazapiId = sent.id;
+      } catch (err) {
+        input.logger.error({ err }, 'fallback send via uazapi failed — message will only be saved');
+      }
       await addMessage({
         conversationId: input.conversationId,
         role: 'assistant',
         content: finalText,
-        metadata: { fallbackWithoutToolCall: true },
+        metadata: {
+          fallbackWithoutToolCall: true,
+          ...(uazapiId ? { uazapiMessageId: uazapiId } : {}),
+        },
       });
-      input.logger.warn({ finalText }, 'agent emitted text without send_reply tool call');
+      input.logger.info(
+        { sent: !!uazapiId },
+        'agent emitted text without send_reply — relayed to patient via fallback',
+      );
     }
     break;
   }
