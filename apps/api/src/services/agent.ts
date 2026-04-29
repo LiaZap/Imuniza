@@ -46,18 +46,21 @@ export async function runAgent(input: RunAgentInput): Promise<void> {
       role: 'system',
       content: `Perfil atual do paciente (JSON): ${JSON.stringify(profile)}. Telefone: ${input.patientPhone}.`,
     },
-    ...history.map<ChatMessage>((m) => {
-      if (m.role === 'user') return { role: 'user', content: m.content };
-      if (m.role === 'system') return { role: 'system', content: m.content };
-      if (m.role === 'tool') {
-        return {
-          role: 'tool',
-          content: m.content,
-          tool_call_id: (m.metadata as { toolCallId?: string })?.toolCallId ?? 'unknown',
-        };
-      }
-      return { role: 'assistant', content: m.content };
-    }),
+    // Filtra mensagens 'tool' do historico: elas sao resultados de
+    // function calling intermedios. Nao salvamos o assistant.tool_calls
+    // que as referencia, entao se mandassemos a 'tool' sozinha a OpenAI
+    // rejeita com "messages with role 'tool' must be a response to a
+    // preceeding message with 'tool_calls'". O texto final do assistant
+    // ja foi salvo separadamente, entao a conversa fica integra.
+    // Tambem dropa 'human' (atendente) e 'system' (interno) — assistant
+    // do humano vira 'assistant' do ponto de vista da IA.
+    ...history
+      .filter((m) => m.role === 'user' || m.role === 'assistant' || m.role === 'human')
+      .map<ChatMessage>((m) => {
+        if (m.role === 'user') return { role: 'user', content: m.content };
+        // 'human' (atendente) e 'assistant' (IA) sao ambos respostas da clinica
+        return { role: 'assistant', content: m.content };
+      }),
   ];
 
   const ctx: FunctionContext = {
