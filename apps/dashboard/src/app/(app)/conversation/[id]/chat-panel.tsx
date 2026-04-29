@@ -112,7 +112,7 @@ export function ChatPanel({
   async function handleClose() {
     if (!confirm('Encerrar esta conversa?')) return;
     try {
-      await api(`/conversations/${conversation.id}/close`, { method: 'POST' });
+      await api(`/conversations/${conversation.id}/close`, { method: 'POST', body: '{}' });
       router.refresh();
     } catch {
       setError('Falha ao encerrar.');
@@ -122,7 +122,7 @@ export function ChatPanel({
   async function handleReturnToAi() {
     if (!confirm('Devolver esta conversa para a IA? Ela vai voltar a responder.')) return;
     try {
-      await api(`/conversations/${conversation.id}/resume-ai`, { method: 'POST' });
+      await api(`/conversations/${conversation.id}/resume-ai`, { method: 'POST', body: '{}' });
       router.refresh();
     } catch {
       setError('Falha ao devolver para a IA.');

@@ -56,6 +56,22 @@ async function buildServer() {
   await app.register(cookie, { secret: env.AUTH_SECRET });
   await app.register(sensible);
 
+  // Fastify 5 rejeita Content-Type: application/json com body vazio.
+  // Aceita string vazia como objeto vazio para nao quebrar POSTs sem body.
+  app.addContentTypeParser(
+    'application/json',
+    { parseAs: 'string' },
+    (_req, body, done) => {
+      const text = (body as string).trim();
+      if (text.length === 0) return done(null, {});
+      try {
+        done(null, JSON.parse(text));
+      } catch (err) {
+        done(err as Error);
+      }
+    },
+  );
+
   await app.register(healthRoutes);
   await app.register(webhookRoutes, { prefix: '/webhook' });
   await app.register(authRoutes, { prefix: '/auth' });
