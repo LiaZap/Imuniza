@@ -1,5 +1,6 @@
 import {
   BookOpen,
+  CalendarDays,
   LayoutDashboard,
   LineChart,
   ListTodo,
@@ -19,6 +20,7 @@ export type NavItem = {
 
 export const navItems: NavItem[] = [
   { href: '/queue', label: 'Fila', icon: ListTodo },
+  { href: '/agenda', label: 'Agenda', icon: CalendarDays },
   { href: '/patients', label: 'Pacientes', icon: UserRound },
   { href: '/metrics', label: 'Métricas', icon: LineChart },
   { href: '/campaigns', label: 'Campanhas', icon: Megaphone, adminOnly: true },
